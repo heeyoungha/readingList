@@ -1,10 +1,10 @@
 
 import { Button } from "./ui/button";
-import { BookOpen, BarChart3, Users } from "lucide-react";
+import { BookOpen, BarChart3, Users, CheckSquare } from "lucide-react";
 
 interface NavigationProps {
-  currentPage: 'books' | 'dashboard' | 'meeting';
-  onPageChange: (page: 'books' | 'dashboard' | 'meeting') => void;
+  currentPage: 'books' | 'dashboard' | 'meeting' | 'actions';
+  onPageChange: (page: 'books' | 'dashboard' | 'meeting' | 'actions') => void;
 }
 
 export function Navigation({ currentPage, onPageChange }: NavigationProps) {
@@ -42,6 +42,19 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
             >
               <Users className="w-4 h-4 mr-2" />
               모임
+            </Button>
+            
+            <Button
+              variant={currentPage === 'actions' ? 'default' : 'ghost'}
+              onClick={() => onPageChange('actions')}
+              className={`transition-all duration-200 font-medium ${
+                currentPage === 'actions' 
+                  ? 'bg-black text-white shadow-md scale-105 border-black hover:bg-black hover:text-white' 
+                  : 'hover:bg-accent hover:text-accent-foreground border-transparent'
+              }`}
+            >
+              <CheckSquare className="w-4 h-4 mr-2" />
+              액션리스트
             </Button>
             
             <Button

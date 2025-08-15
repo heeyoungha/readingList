@@ -1,5 +1,5 @@
 import { Book } from "../types/book";
-import { BookCard } from "./BookCard";
+import BookCard from "./BookCard";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Users, Calendar, Clock, BookOpen } from "lucide-react";
@@ -7,17 +7,18 @@ import { Users, Calendar, Clock, BookOpen } from "lucide-react";
 interface MeetingPageProps {
   books: Book[];
   onBookClick: (book: Book) => void;
+  onAddActionList: (book: Book) => void;
 }
 
-export function MeetingPage({ books, onBookClick }: MeetingPageProps) {
+export function MeetingPage({ books, onBookClick, onAddActionList }: MeetingPageProps) {
   // 각 독자별로 가장 최근 독후감을 찾기
   const getRecentBooksByReader = () => {
     const readerBooks: Record<string, Book> = {};
     
     books.forEach(book => {
-      const currentBook = readerBooks[book.reader];
+      const currentBook = readerBooks[book.reader_name];
       if (!currentBook || new Date(book.readDate) > new Date(currentBook.readDate)) {
-        readerBooks[book.reader] = book;
+        readerBooks[book.reader_name] = book;
       }
     });
     
@@ -117,7 +118,8 @@ export function MeetingPage({ books, onBookClick }: MeetingPageProps) {
               <div key={book.id} className="relative">
                 <BookCard
                   book={book}
-                  onClick={() => onBookClick(book)}
+                  onViewDetails={onBookClick}
+                  onAddActionList={onAddActionList}
                 />
                 <Badge 
                   variant="default" 
