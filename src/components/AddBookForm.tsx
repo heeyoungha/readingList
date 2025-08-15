@@ -1,64 +1,101 @@
-import { useState } from "react";
-import { Book } from "../types/book";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import React, { useState, useEffect } from 'react';
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { Plus, X, Star } from "lucide-react";
+import { Book } from '../types/book';
+import { getReaders } from '../lib/database';
 
 interface AddBookFormProps {
-  onAddBook: (book: Omit<Book, 'id'>) => void;
+  onAddBook: (book: Omit<Book, 'id' | 'reader_name'>) => void;
 }
 
 const emotions = [
   { value: 'happy', label: '행복한', emoji: '😊' },
   { value: 'sad', label: '슬픈', emoji: '😢' },
-  { value: 'thoughtful', label: '생각이 많아지는', emoji: '🤔' },
-  { value: 'excited', label: '흥미진진한', emoji: '😄' },
-  { value: 'calm', label: '차분한', emoji: '😌' },
-  { value: 'surprised', label: '놀라운', emoji: '😲' }
+  { value: 'thoughtful', label: '생각에 잠긴', emoji: '🤔' },
+  { value: 'excited', label: '흥미진진한', emoji: '🤩' },
+  { value: 'calm', label: '평온한', emoji: '😌' },
+  { value: 'surprised', label: '놀란', emoji: '😲' }
 ];
 
-export function AddBookForm({ onAddBook }: AddBookFormProps) {
+export default function AddBookForm({ onAddBook }: AddBookFormProps) {
   const [open, setOpen] = useState(false);
+  const [readers, setReaders] = useState<{ id: string; name: string }[]>([]);
+  const [customEmotions, setCustomEmotions] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     author: '',
-    reader: '',
+    reader_id: '',
     review: '',
+    presentation: '',
     rating: 5,
-    emotion: 'happy' as Book['emotion'],
+    emotion: 'happy' as string,
     readDate: new Date().toISOString().split('T')[0],
     tags: [] as string[]
   });
+  const [customEmotion, setCustomEmotion] = useState('');
+  const [customReader, setCustomReader] = useState('');
   const [newTag, setNewTag] = useState('');
+
+  // Load readers on component mount
+  useEffect(() => {
+    const loadReaders = async () => {
+      try {
+        const readersData = await getReaders();
+        setReaders(readersData);
+      } catch (error) {
+        console.error('Error loading readers:', error);
+      }
+    };
+    loadReaders();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title || !formData.author || !formData.reader || !formData.review) {
+    console.log('Form submitted:', formData);
+    
+    if (!formData.title || !formData.author || !formData.reader_id || !formData.review) {
+      console.log('Validation failed:', {
+        title: !!formData.title,
+        author: !!formData.author,
+        reader_id: !!formData.reader_id,
+        review: !!formData.review
+      });
       return;
     }
+
+    console.log('Calling onAddBook with:', {
+      ...formData,
+      tags: formData.tags
+    });
 
     onAddBook({
       ...formData,
       tags: formData.tags
-    });
+    } as Omit<Book, 'id' | 'reader_name'>);
 
     // Reset form
     setFormData({
       title: '',
       author: '',
-      reader: '',
+      reader_id: '',
       review: '',
+      presentation: '',
       rating: 5,
       emotion: 'happy',
       readDate: new Date().toISOString().split('T')[0],
       tags: []
     });
+    setCustomEmotion('');
+    setCustomReader('');
+    setNewTag('');
+    setCustomEmotions([]);
     setOpen(false);
   };
 
@@ -82,7 +119,7 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="lg" className="mb-6">
+        <Button>
           <Plus className="w-4 h-4 mr-2" />
           새 독후감 추가
         </Button>
@@ -103,6 +140,7 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
                 onChange={(e) => setFormData(prev => ({...prev, title: e.target.value}))}
                 placeholder="책 제목을 입력하세요"
                 required
+                className="bg-white border-2"
               />
             </div>
             
@@ -114,6 +152,7 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
                 onChange={(e) => setFormData(prev => ({...prev, author: e.target.value}))}
                 placeholder="저자명을 입력하세요"
                 required
+                className="bg-white border-2"
               />
             </div>
           </div>
@@ -121,13 +160,39 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="reader">독자 *</Label>
-              <Input
-                id="reader"
-                value={formData.reader}
-                onChange={(e) => setFormData(prev => ({...prev, reader: e.target.value}))}
-                placeholder="독자명을 입력하세요"
-                required
-              />
+              <div className="space-y-2">
+                <Select
+                  value={formData.reader_id}
+                  onValueChange={(value) => 
+                    setFormData(prev => ({...prev, reader_id: value}))
+                  }
+                >
+                  <SelectTrigger className="bg-white border-2">
+                    <SelectValue placeholder="독자를 선택하세요" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-2">
+                    {readers.map(reader => (
+                      <SelectItem key={reader.id} value={reader.id}>
+                        {reader.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <div className="text-xs text-muted-foreground">
+                  또는 직접 입력: 
+                  <Input
+                    placeholder="독자명을 직접 입력하세요"
+                    value={customReader}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCustomReader(value);
+                      setFormData(prev => ({...prev, reader_id: value}));
+                    }}
+                    className="mt-1 bg-white border-2"
+                  />
+                </div>
+              </div>
             </div>
             
             <div className="space-y-2">
@@ -137,6 +202,7 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
                 type="date"
                 value={formData.readDate}
                 onChange={(e) => setFormData(prev => ({...prev, readDate: e.target.value}))}
+                className="bg-white border-2"
               />
             </div>
           </div>
@@ -167,23 +233,79 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
             
             <div className="space-y-2">
               <Label>감정</Label>
-              <Select
-                value={formData.emotion}
-                onValueChange={(value: Book['emotion']) => 
-                  setFormData(prev => ({...prev, emotion: value}))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {emotions.map(emotion => (
-                    <SelectItem key={emotion.value} value={emotion.value}>
-                      {emotion.emoji} {emotion.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Select
+                  value={formData.emotion}
+                  onValueChange={(value: string) => 
+                    setFormData(prev => ({...prev, emotion: value}))
+                  }
+                >
+                  <SelectTrigger className="bg-white border-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-2">
+                    {emotions.map(emotion => (
+                      <SelectItem key={emotion.value} value={emotion.value}>
+                        {emotion.emoji} {emotion.label}
+                      </SelectItem>
+                    ))}
+                    {customEmotions.length > 0 && (
+                      <>
+                        <SelectItem value="" disabled>
+                          ─── 사용자 추가 감정 ───
+                        </SelectItem>
+                        {customEmotions.map((emotion, index) => (
+                          <SelectItem key={`custom-${index}`} value={emotion}>
+                            😊 {emotion}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+                
+                <div className="text-xs text-muted-foreground">
+                  또는 직접 입력: 
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      placeholder="감정을 직접 입력하세요"
+                      value={customEmotion}
+                      onChange={(e) => setCustomEmotion(e.target.value)}
+                      className="flex-1 bg-white border-2"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        if (customEmotion.trim() && !customEmotions.includes(customEmotion.trim())) {
+                          setCustomEmotions(prev => [...prev, customEmotion.trim()]);
+                          setFormData(prev => ({...prev, emotion: customEmotion.trim()}));
+                          setCustomEmotion('');
+                        }
+                      }}
+                    >
+                      추가
+                    </Button>
+                  </div>
+                  {customEmotions.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-muted-foreground mb-1">추가된 감정:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {customEmotions.map((emotion, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs cursor-pointer hover:bg-gray-100"
+                            onClick={() => setFormData(prev => ({...prev, emotion: emotion}))}
+                          >
+                            {emotion}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           
@@ -194,8 +316,19 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
               value={formData.review}
               onChange={(e) => setFormData(prev => ({...prev, review: e.target.value}))}
               placeholder="책에 대한 생각과 느낌을 자유롭게 적어주세요..."
-              className="min-h-[120px]"
+              className="min-h-[120px] bg-white border-2"
               required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="presentation">발제문</Label>
+            <Textarea
+              id="presentation"
+              value={formData.presentation}
+              onChange={(e) => setFormData(prev => ({...prev, presentation: e.target.value}))}
+              placeholder="독서 모임에서 발표할 내용을 작성해주세요... (선택사항)"
+              className="min-h-[100px] bg-white border-2"
             />
           </div>
           
@@ -207,6 +340,7 @@ export function AddBookForm({ onAddBook }: AddBookFormProps) {
                 onChange={(e) => setNewTag(e.target.value)}
                 placeholder="태그 추가 (엔터 또는 + 버튼)"
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                className="bg-white border-2"
               />
               <Button type="button" size="sm" onClick={addTag}>
                 <Plus className="w-4 h-4" />

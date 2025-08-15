@@ -49,7 +49,7 @@ export function Dashboard({ books }: DashboardProps) {
   
   // Top readers
   const readerStats = books.reduce((acc, book) => {
-    acc[book.reader] = (acc[book.reader] || 0) + 1;
+    acc[book.reader_name] = (acc[book.reader_name] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
   
