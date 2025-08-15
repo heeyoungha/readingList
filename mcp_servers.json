@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "upabase": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-upabase"],
+      "env": {
+        "UPABASE_URL": "YOUR_UPABASE_URL",
+        "UPABASE_ANON_KEY": "YOUR_UPABASE_ANON_KEY",
+        "UPABASE_SERVICE_ROLE_KEY": "YOUR_UPABASE_SERVICE_ROLE_KEY"
+      }
+    }
+  }
+} 
