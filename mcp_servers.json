@@ -1,12 +1,12 @@
 {
   "mcpServers": {
-    "upabase": {
+    "supabase": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-upabase"],
+      "args": ["-y", "@modelcontextprotocol/server-supabase"],
       "env": {
-        "UPABASE_URL": "YOUR_UPABASE_URL",
-        "UPABASE_ANON_KEY": "YOUR_UPABASE_ANON_KEY",
-        "UPABASE_SERVICE_ROLE_KEY": "YOUR_UPABASE_SERVICE_ROLE_KEY"
+        "SUPABASE_URL": "YOUR_SUPABASE_URL",
+        "SUPABASE_ANON_KEY": "YOUR_SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
       }
     }
   }

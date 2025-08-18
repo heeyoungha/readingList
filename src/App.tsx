@@ -7,11 +7,15 @@ import { ActionListPage } from './components/ActionListPage';
 import { BookDetailModal } from './components/BookDetailModal';
 import { ActionListForm } from './components/ActionListForm';
 import AddBookForm from './components/AddBookForm';
-import { ReaderManager } from './components/ReaderManager';
+import { AuthModal } from './components/AuthModal';
+import { UserProfile } from './components/UserProfile';
+import { EmailVerificationNotice } from './components/EmailVerificationNotice';
 import { Book } from './types/book';
 import { ActionList } from './types/actionList';
-import { getBooks, addBook, addSampleData, getReaders, addReader, deleteReader, getActionLists, addActionList } from './lib/database';
+import { getBooks, addBook, addSampleData, getActionLists, addActionList } from './lib/database';
+import { auth } from './lib/auth';
 import { Button } from './components/ui/button';
+import { User, LogIn } from 'lucide-react';
 
 type Page = 'books' | 'meeting' | 'dashboard' | 'actions';
 
@@ -48,12 +52,15 @@ function App() {
   const [currentPage, setCurrentPage] = useState<Page>('books');
   const [books, setBooks] = useState<Book[]>([]);
   const [actionLists, setActionLists] = useState<ActionList[]>([]);
-  const [readers, setReaders] = useState<{ id: string; name: string; email?: string; bio?: string }[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [showReaderManager, setShowReaderManager] = useState(false);
   const [showActionListForm, setShowActionListForm] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [actionListInitialData, setActionListInitialData] = useState<{
     book_title: string;
     reader_id: string;
@@ -62,8 +69,26 @@ function App() {
 
   useEffect(() => {
     loadBooks();
-    loadReaders();
     loadActionLists();
+    
+    // 인증 상태 확인
+    const checkAuth = async () => {
+      try {
+        const user = await auth.getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.log('로그인되지 않음');
+      }
+    };
+    
+    checkAuth();
+    
+    // 인증 상태 변경 감지
+    const { data: { subscription } } = auth.onAuthStateChange((user) => {
+      setCurrentUser(user);
+    });
+    
+    return () => subscription.unsubscribe();
   }, []);
 
   const loadBooks = async () => {
@@ -82,14 +107,7 @@ function App() {
     }
   };
 
-  const loadReaders = async () => {
-    try {
-      const readersData = await getReaders();
-      setReaders(readersData);
-    } catch (err) {
-      console.error('Error loading readers:', err);
-    }
-  };
+
 
   const loadActionLists = async () => {
     try {
@@ -122,27 +140,7 @@ function App() {
     }
   };
 
-  const handleAddReader = async (name: string, email?: string, bio?: string) => {
-    try {
-      const newReader = await addReader(name, email, bio);
-      setReaders(prev => [...prev, newReader]);
-      return newReader;
-    } catch (err) {
-      console.error('Error adding reader:', err);
-      alert('독자를 추가하는데 실패했습니다.');
-      throw err;
-    }
-  };
 
-  const handleDeleteReader = async (id: string) => {
-    try {
-      await deleteReader(id);
-      setReaders(prev => prev.filter(reader => reader.id !== id));
-    } catch (err) {
-      console.error('Error deleting reader:', err);
-      alert('독자를 삭제하는데 실패했습니다.');
-    }
-  };
 
   const handleViewBookDetails = (book: Book) => {
     setSelectedBook(book);
@@ -166,11 +164,32 @@ function App() {
     setShowActionListForm(true);
   };
 
+  const handleAuthSuccess = () => {
+    // 인증 성공 시 추가 작업
+    console.log('로그인 성공!');
+  };
+
+  const handleEmailVerified = () => {
+    // 이메일 인증 완료 시 사용자 정보 새로고침
+    const checkAuth = async () => {
+      try {
+        const user = await auth.getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.log('사용자 정보 새로고침 실패');
+      }
+    };
+    checkAuth();
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+  };
+
   const handleAddSampleData = async () => {
     try {
       await addSampleData();
       await loadBooks(); // Reload books after adding sample data
-      await loadReaders(); // Reload readers after adding sample data
       await loadActionLists(); // Reload action lists after adding sample data
     } catch (err) {
       console.error('Error adding sample data:', err);
@@ -207,7 +226,14 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+      <Navigation 
+        currentPage={currentPage} 
+        onPageChange={setCurrentPage}
+        currentUser={currentUser}
+        onLoginClick={() => setShowAuthModal(true)}
+        onProfileClick={() => setShowUserProfile(true)}
+        onEmailVerificationClick={() => setShowEmailVerification(true)}
+      />
       
       <main className="container mx-auto px-4 py-8">
         {currentPage === 'books' && (
@@ -215,12 +241,6 @@ function App() {
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-3xl font-bold">독후감 모음</h1>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowReaderManager(true)}
-                >
-                  독자 관리
-                </Button>
                 <AddBookForm onAddBook={handleAddBook} />
                 {books.length === 0 && (
                   <Button
@@ -275,20 +295,33 @@ function App() {
         />
       )}
 
-      <ReaderManager
-        readers={readers}
-        onReadersChange={loadReaders}
-        open={showReaderManager}
-        onOpenChange={setShowReaderManager}
-        onAddReader={handleAddReader}
-        onDeleteReader={handleDeleteReader}
-      />
+
 
       <ActionListForm
         open={showActionListForm}
         onOpenChange={setShowActionListForm}
         onAddActionList={handleAddActionList}
         initialData={actionListInitialData}
+      />
+
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onAuthSuccess={handleAuthSuccess}
+      />
+
+      <UserProfile
+        user={currentUser}
+        open={showUserProfile}
+        onOpenChange={setShowUserProfile}
+        onLogout={handleLogout}
+      />
+
+      <EmailVerificationNotice
+        user={currentUser}
+        open={showEmailVerification}
+        onOpenChange={setShowEmailVerification}
+        onVerified={handleEmailVerified}
       />
     </div>
   );

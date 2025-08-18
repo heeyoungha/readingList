@@ -1,13 +1,18 @@
 
 import { Button } from "./ui/button";
-import { BookOpen, BarChart3, Users, CheckSquare } from "lucide-react";
+import { BookOpen, BarChart3, Users, CheckSquare, User, LogIn } from "lucide-react";
+import { getUserDisplayName } from "../lib/utils";
 
 interface NavigationProps {
   currentPage: 'books' | 'dashboard' | 'meeting' | 'actions';
   onPageChange: (page: 'books' | 'dashboard' | 'meeting' | 'actions') => void;
+  currentUser?: any;
+  onLoginClick: () => void;
+  onProfileClick: () => void;
+  onEmailVerificationClick: () => void;
 }
 
-export function Navigation({ currentPage, onPageChange }: NavigationProps) {
+export function Navigation({ currentPage, onPageChange, currentUser, onLoginClick, onProfileClick, onEmailVerificationClick }: NavigationProps) {
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 py-4">
@@ -15,6 +20,42 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
           <div className="flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-primary" />
             <h1 className="text-xl font-semibold text-foreground">독후감 공유</h1>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {currentUser ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onProfileClick}
+                  className="flex items-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  {getUserDisplayName(currentUser)}
+                </Button>
+                {!currentUser.email_confirmed_at && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onEmailVerificationClick}
+                    className="text-yellow-600 border-yellow-300 hover:bg-yellow-50"
+                  >
+                    인증 필요
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLoginClick}
+                className="flex items-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                로그인
+              </Button>
+            )}
           </div>
           
           <div className="flex items-center gap-2">
