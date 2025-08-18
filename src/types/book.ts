@@ -8,9 +8,11 @@ export interface Book {
     presentation?: string; // 발제문 (선택사항)
     rating: number; // 1-5
     emotion: 'happy' | 'sad' | 'thoughtful' | 'excited' | 'calm' | 'surprised';
+    emotion_score?: number; // 감정의 행동력 수치 (1-10)
     readDate: string;
     coverImage?: string;
     tags: string[];
+    genre?: string; // 장르 필드 추가
   }
   
   export interface BookStats {

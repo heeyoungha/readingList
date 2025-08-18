@@ -17,6 +17,8 @@ export async function getBooks(): Promise<Book[]> {
     throw error
   }
 
+  console.log('Raw book data from database:', data); // 디버깅용
+
   return data?.map(book => ({
     id: book.id,
     title: book.title,
@@ -27,8 +29,10 @@ export async function getBooks(): Promise<Book[]> {
     presentation: book.presentation,
     rating: book.rating,
     emotion: book.emotion,
+    emotion_score: book.emotion_score,
     readDate: book.read_date,
-    tags: book.tags
+    tags: book.tags,
+    genre: book.genre
   })) || []
 }
 
@@ -44,8 +48,10 @@ export async function addBook(book: Omit<Book, 'id' | 'reader_name'>): Promise<B
     presentation: book.presentation,
     rating: book.rating,
     emotion: book.emotion,
+    emotion_score: book.emotion_score,
     read_date: book.readDate,
-    tags: book.tags
+    tags: book.tags,
+    genre: book.genre
   };
   
   console.log('Inserting data:', insertData);
@@ -76,8 +82,10 @@ export async function addBook(book: Omit<Book, 'id' | 'reader_name'>): Promise<B
     presentation: data.presentation,
     rating: data.rating,
     emotion: data.emotion,
+    emotion_score: data.emotion_score,
     readDate: data.read_date,
-    tags: data.tags
+    tags: data.tags,
+    genre: data.genre
   }
 }
 
