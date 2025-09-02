@@ -167,20 +167,41 @@ readingList/
 - **토픽 모델링**: 키워드 추출, 카테고리별 분류, 관심사 분석
 - **페르소나 생성기**: 글쓰기 스타일, 감정 프로필, 성격 특성 분석
 - **FastAPI 백엔드**: RESTful API, 텍스트 분석, 페르소나 생성 엔드포인트
+- **임베딩 생성 시스템**: transformers 직접 사용으로 PyTorch 2.2.2 호환, 한국어 텍스트 임베딩 생성 완벽 지원
+- **벡터 데이터베이스**: FAISS 기반 고성능 벡터 검색 및 저장, 실제 임베딩으로 의미있는 검색 가능
+- **확장 가능한 저장소**: 로컬 저장 + 향후 Supabase 전환을 위한 구조
+- **Supabase 전환 준비**: 마이그레이션 계획 및 전환 메서드 구현 완료
+- **실제 텍스트 분석**: 한국어 독서 관련 텍스트 분석 및 임베딩 생성 완벽 작동
 
 #### **구현 계획**
 - **Phase 1**: 데이터 수집 및 전처리 ✅ **완료**
-- **Phase 2**: 임베딩 생성 및 벡터 DB 구축 🔄 **대기 중**
-- **Phase 3**: 검색 시스템 구현 ⏳ **대기 중**
+- **Phase 2**: 임베딩 생성 및 벡터 DB 구축 ✅ **완료** (실제 텍스트 분석 및 임베딩 생성 완벽 작동)
+- **Phase 3**: 검색 시스템 구현 ⏳ **대기 중** (Phase 2 완성으로 구현 준비 완료)
 - **Phase 4**: 페르소나 챗봇 개발 ⏳ **대기 중**
 - **Phase 5**: 사용자 인터페이스 및 테스트 ⏳ **대기 중**
 
+#### **개발 → 운영 전환 계획**
+**현재 단계 (개발용)**: 로컬 FAISS 기반으로 빠른 개발 및 테스트
+- ✅ **Phase 1-2**: 로컬 환경에서 완벽 구현
+- 🔄 **Phase 3**: 로컬 FAISS 기반 검색 시스템 구현
+- 🔄 **Phase 4-5**: 로컬 환경에서 페르소나 챗봇 및 UI 완성
+
+**운영 단계 (프로덕션용)**: Supabase 벡터 확장으로 전환하여 Vercel 배포
+- 🔄 **Supabase 전환**: 로컬 FAISS → Supabase 벡터 확장
+- 🔄 **Vercel 배포**: 완벽한 서버리스 환경에서 운영
+- 🔄 **사용자 서비스**: 실제 사용자 대상 서비스 시작
+
+**전환 시점**: 개발 완료 후, Vercel 배포 준비 시
+**전환 이유**: Vercel 호환성, 사용자별 데이터 격리, 클라우드 확장성
+
 #### **기술 스택**
 - **AI/ML**: OpenAI API, sentence-transformers
-- **벡터 DB**: FAISS (로컬 저장)
+- **벡터 DB**: FAISS (로컬 저장) → 향후 Supabase 벡터 확장
 - **한국어 처리**: KoNLPy (Okt, Mecab), spaCy
 - **데이터 처리**: Python + Pandas, NumPy
-- **백엔드**: FastAPI
+- **백엔드**: FastAPI (개발용) → 향후 Vercel API Routes
+- **프론트엔드**: React + TypeScript (Vercel 배포용)
+- **데이터베이스**: Supabase (PostgreSQL + 벡터 확장)
 
 #### **빠른 시작**
 ```bash
@@ -188,6 +209,12 @@ cd persona_system
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python test_persona.py
+
+# Phase 2 테스트
+python test_phase2.py                    # 기본 기능 테스트
+python test_embedding_extended.py        # 확장된 임베딩 기능 테스트
+python test_phase2_complete.py           # Phase 2 완성 및 Supabase 전환 준비 테스트
+
+# 백엔드 실행
 python run_backend.py
 ```

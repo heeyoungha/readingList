@@ -13,6 +13,8 @@ from models.persona_generator import PersonaGenerator
 from utils.text_preprocessor import TextPreprocessor
 from utils.emotion_analyzer import EmotionAnalyzer
 from utils.topic_analyzer import TopicAnalyzer
+from utils.embedding_generator import EmbeddingGenerator
+from utils.vector_database import VectorDatabase
 from config import settings
 
 # FastAPI 앱 생성
@@ -36,7 +38,8 @@ persona_generator = PersonaGenerator()
 text_preprocessor = TextPreprocessor()
 emotion_analyzer = EmotionAnalyzer()
 topic_analyzer = TopicAnalyzer()
-
+embedding_generator = EmbeddingGenerator()
+vector_database = VectorDatabase()
 
 # Pydantic 모델
 class UserData(BaseModel):
@@ -54,6 +57,16 @@ class TextAnalysisRequest(BaseModel):
 
 class PersonaRequest(BaseModel):
     user_data: UserData
+
+
+class EmbeddingRequest(BaseModel):
+    texts: List[str]
+    save_path: Optional[str] = None
+
+
+class VectorSearchRequest(BaseModel):
+    query_text: str
+    k: int = 5
 
 
 class AnalysisResponse(BaseModel):
@@ -136,6 +149,139 @@ async def generate_persona(request: PersonaRequest):
     except Exception as e:
         logger.error(f"페르소나 생성 중 오류: {e}")
         raise HTTPException(status_code=500, detail=f"페르소나 생성 중 오류가 발생했습니다: {str(e)}")
+
+
+# Phase 2: 임베딩 생성 엔드포인트
+@app.post("/embeddings/generate", response_model=AnalysisResponse)
+async def generate_embeddings(request: EmbeddingRequest):
+    """텍스트 임베딩 생성 API"""
+    try:
+        if not request.texts:
+            raise HTTPException(status_code=400, detail="텍스트 목록이 비어있습니다.")
+        
+        # 임베딩 생성
+        embeddings_data = embedding_generator.generate_embeddings(request.texts)
+        
+        # 저장 경로가 지정된 경우 저장
+        if request.save_path:
+            embedding_generator.save_embeddings(embeddings_data, request.save_path)
+        
+        # 통계 정보 추가
+        stats = embedding_generator.get_embedding_stats(embeddings_data)
+        embeddings_data['stats'] = stats
+        
+        return AnalysisResponse(
+            success=True,
+            data=embeddings_data,
+            message="임베딩이 성공적으로 생성되었습니다."
+        )
+        
+    except Exception as e:
+        logger.error(f"임베딩 생성 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"임베딩 생성 중 오류가 발생했습니다: {str(e)}")
+
+
+# 사용자 데이터 임베딩 생성 엔드포인트
+@app.post("/embeddings/user", response_model=AnalysisResponse)
+async def generate_user_embeddings(request: PersonaRequest):
+    """사용자 데이터 임베딩 생성 API"""
+    try:
+        user_data = request.user_data.dict()
+        
+        # 사용자 데이터 임베딩 생성
+        user_embeddings = embedding_generator.generate_user_embeddings(user_data)
+        
+        if user_embeddings['chunks']:
+            # 자동 저장
+            save_path = f"./data/processed/user_{user_data['id']}_embeddings"
+            embedding_generator.save_embeddings(user_embeddings, save_path)
+            
+            # 통계 정보 추가
+            stats = embedding_generator.get_embedding_stats(user_embeddings)
+            user_embeddings['stats'] = stats
+            
+            return AnalysisResponse(
+                success=True,
+                data=user_embeddings,
+                message="사용자 데이터 임베딩이 성공적으로 생성되었습니다."
+            )
+        else:
+            return AnalysisResponse(
+                success=True,
+                data=user_embeddings,
+                message="처리할 텍스트가 없습니다."
+            )
+        
+    except Exception as e:
+        logger.error(f"사용자 데이터 임베딩 생성 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"사용자 데이터 임베딩 생성 중 오류가 발생했습니다: {str(e)}")
+
+
+# 벡터 데이터베이스 인덱스 생성 엔드포인트
+@app.post("/vector-db/create", response_model=AnalysisResponse)
+async def create_vector_index(embedding_dim: int, index_type: str = "IVFFlat"):
+    """FAISS 벡터 인덱스 생성 API"""
+    try:
+        vector_database.create_index(embedding_dim, index_type)
+        
+        stats = vector_database.get_index_stats()
+        
+        return AnalysisResponse(
+            success=True,
+            data=stats,
+            message="벡터 인덱스가 성공적으로 생성되었습니다."
+        )
+        
+    except Exception as e:
+        logger.error(f"벡터 인덱스 생성 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"벡터 인덱스 생성 중 오류가 발생했습니다: {str(e)}")
+
+
+# 벡터 검색 엔드포인트
+@app.post("/vector-db/search", response_model=AnalysisResponse)
+async def search_vectors(request: VectorSearchRequest):
+    """벡터 검색 API"""
+    try:
+        if not vector_database.index:
+            raise HTTPException(status_code=400, detail="벡터 인덱스가 생성되지 않았습니다.")
+        
+        # 텍스트로 검색
+        results = vector_database.search_by_text(
+            query_text=request.query_text,
+            k=request.k,
+            embedding_generator=embedding_generator
+        )
+        
+        return AnalysisResponse(
+            success=True,
+            data={
+                "query": request.query_text,
+                "results": results,
+                "total_results": len(results)
+            },
+            message="벡터 검색이 완료되었습니다."
+        )
+        
+    except Exception as e:
+        logger.error(f"벡터 검색 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"벡터 검색 중 오류가 발생했습니다: {str(e)}")
+
+
+# 벡터 데이터베이스 통계 엔드포인트
+@app.get("/vector-db/stats")
+async def get_vector_db_stats():
+    """벡터 데이터베이스 통계 정보 API"""
+    try:
+        stats = vector_database.get_index_stats()
+        return {
+            "success": True,
+            "data": stats,
+            "message": "벡터 데이터베이스 통계 정보를 반환합니다."
+        }
+        
+    except Exception as e:
+        logger.error(f"벡터 DB 통계 조회 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"벡터 DB 통계 조회 중 오류가 발생했습니다: {str(e)}")
 
 
 # 배치 분석 엔드포인트

@@ -252,4 +252,5 @@ persona_system/data/processed/
 persona_system/logs/
 persona_system/*.json
 persona_system/venv/
+persona_system/venv_pytorch/
 persona_system/.env 
