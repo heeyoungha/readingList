@@ -32,6 +32,22 @@ class TextPreprocessor:
             '또는', '또한', '그러나', '그런데', '그래서', '따라서', '그러면'
         }
     
+    def clean_text(self, text: str) -> str:
+        """종합적인 텍스트 정리"""
+        if not text:
+            return ""
+        
+        # HTML 태그 제거
+        text = self.clean_html(text)
+        
+        # 특수문자 정리
+        text = self.clean_special_chars(text)
+        
+        # 텍스트 정규화
+        text = self.normalize_text(text)
+        
+        return text
+    
     def clean_html(self, text: str) -> str:
         """HTML 태그 제거"""
         if not text:

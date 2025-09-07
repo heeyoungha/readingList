@@ -135,7 +135,9 @@ class EmbeddingGenerator:
                 logger.debug(f"텍스트 {i+1}/{len(texts)} 임베딩 생성 완료")
                 
             except Exception as e:
-                logger.warning(f"텍스트 {i+1} 임베딩 생성 실패: {e}")
+                logger.error(f"❌ 텍스트 {i+1} 임베딩 생성 실패: {e}")
+                import traceback
+                logger.error(f"상세 오류: {traceback.format_exc()}")
                 continue
         
         if not embeddings:

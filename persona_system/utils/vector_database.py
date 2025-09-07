@@ -30,20 +30,30 @@ class VectorDatabase:
         
         logger.info(f"벡터 데이터베이스 초기화: {index_path}")
     
-    def create_index(self, embedding_dim: int, index_type: str = "IVFFlat") -> None:
+    def create_index(self, embedding_dim: int, index_type: str = "auto", vector_count: int = 0) -> None:
         """
         FAISS 인덱스 생성
         
         Args:
             embedding_dim: 임베딩 차원
-            index_type: 인덱스 타입 ("IVFFlat", "Flat", "HNSW")
+            index_type: 인덱스 타입 ("IVFFlat", "Flat", "HNSW", "auto")
+            vector_count: 예상 벡터 수 (auto 모드에서 사용)
         """
-        logger.info(f"FAISS 인덱스 생성: {index_type}, 차원: {embedding_dim}")
+        # auto 모드에서 벡터 수에 따라 인덱스 타입 결정
+        if index_type == "auto":
+            if vector_count < 100:
+                index_type = "Flat"  # 소량 데이터는 Flat 사용
+            elif vector_count < 10000:
+                index_type = "HNSW"  # 중간 규모는 HNSW 사용
+            else:
+                index_type = "IVFFlat"  # 대용량은 IVFFlat 사용
+        
+        logger.info(f"FAISS 인덱스 생성: {index_type}, 차원: {embedding_dim}, 예상 벡터 수: {vector_count}")
         
         if index_type == "IVFFlat":
             # IVF (Inverted File Index) + Flat
-            # 클러스터 수를 벡터 개수에 맞게 조정
-            nlist = min(10, max(1, embedding_dim // 100))  # 클러스터 수를 줄임
+            # 클러스터 수를 벡터 개수에 맞게 조정 (최소 1개, 벡터 수보다 작게)
+            nlist = min(max(1, vector_count // 10), max(1, embedding_dim // 100))
             quantizer = faiss.IndexFlatIP(embedding_dim)
             self.index = faiss.IndexIVFFlat(quantizer, embedding_dim, nlist, faiss.METRIC_INNER_PRODUCT)
             self.index.nprobe = min(5, nlist)  # 검색 시 탐색할 클러스터 수
