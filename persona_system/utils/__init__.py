@@ -9,6 +9,7 @@ from .embedding_generator import EmbeddingGenerator
 from .vector_database import VectorDatabase
 from .storage_manager import StorageManager
 from .search_system import SearchSystem
+from .persona_chatbot import PersonaChatbot
 
 __all__ = [
     "TextPreprocessor",
@@ -17,5 +18,6 @@ __all__ = [
     "EmbeddingGenerator",
     "VectorDatabase", 
     "StorageManager",
-    "SearchSystem"
+    "SearchSystem",
+    "PersonaChatbot"
 ] 

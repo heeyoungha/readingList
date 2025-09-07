@@ -36,8 +36,9 @@ class Settings(BaseSettings):
     log_file: str = "./logs/persona_system.log"
     
     class Config:
-        env_file = ".env"
+        env_file = [".env", "../.env"]  # 현재 디렉토리와 상위 디렉토리 모두 확인
         case_sensitive = False
+        extra = "ignore"  # 추가 필드 무시
 
 
 # 전역 설정 인스턴스
