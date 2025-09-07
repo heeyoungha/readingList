@@ -1,362 +1,477 @@
 """
-페르소나 시스템 FastAPI 백엔드
-"""
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-import uvicorn
-from loguru import logger
+🚀 Phase 5: 사용자 인터페이스 및 테스트
 
-from models.persona_generator import PersonaGenerator
-from utils.text_preprocessor import TextPreprocessor
-from utils.emotion_analyzer import EmotionAnalyzer
-from utils.topic_analyzer import TopicAnalyzer
-from utils.embedding_generator import EmbeddingGenerator
-from utils.vector_database import VectorDatabase
+FastAPI 백엔드 서버 - 페르소나 챗봇 API 및 웹 인터페이스
+"""
+import os
+import sys
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+import json
+
+# 프로젝트 루트를 경로에 추가
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from fastapi import FastAPI, HTTPException, Request, Form, File, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from loguru import logger
+import uvicorn
+
+from utils import PersonaChatbot, SearchSystem
 from config import settings
 
-# FastAPI 앱 생성
+
+# FastAPI 앱 초기화
 app = FastAPI(
-    title="페르소나 시스템 API",
-    description="북클럽 데이터를 활용한 개인 맞춤형 페르소나 시스템",
+    title="🤖 페르소나 챗봇 API",
+    description="개인 맞춤형 프로젝트 추천 시스템",
     version="1.0.0"
 )
 
-# CORS 미들웨어 설정
+# CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 개발 환경용, 프로덕션에서는 특정 도메인만 허용
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 전역 인스턴스
-persona_generator = PersonaGenerator()
-text_preprocessor = TextPreprocessor()
-emotion_analyzer = EmotionAnalyzer()
-topic_analyzer = TopicAnalyzer()
-embedding_generator = EmbeddingGenerator()
-vector_database = VectorDatabase()
+# 정적 파일 및 템플릿 설정
+static_path = project_root / "static"
+templates_path = project_root / "templates"
 
-# Pydantic 모델
-class UserData(BaseModel):
-    id: str
-    name: str
-    books: Optional[List[Dict[str, Any]]] = []
-    action_lists: Optional[List[Dict[str, Any]]] = []
-    notes: Optional[List[Dict[str, Any]]] = []
+# 디렉토리 생성
+static_path.mkdir(exist_ok=True)
+templates_path.mkdir(exist_ok=True)
 
+app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+templates = Jinja2Templates(directory=str(templates_path))
 
-class TextAnalysisRequest(BaseModel):
-    text: str
-    analysis_type: str = "all"  # "preprocessing", "emotion", "topic", "all"
+# 전역 챗봇 인스턴스 (싱글톤)
+chatbot: Optional[PersonaChatbot] = None
+user_sessions: Dict[str, PersonaChatbot] = {}
 
 
-class PersonaRequest(BaseModel):
-    user_data: UserData
-
-
-class EmbeddingRequest(BaseModel):
-    texts: List[str]
-    save_path: Optional[str] = None
-
-
-class VectorSearchRequest(BaseModel):
-    query_text: str
-    k: int = 5
-
-
-class AnalysisResponse(BaseModel):
-    success: bool
-    data: Dict[str, Any]
+# Pydantic 모델들
+class ChatMessage(BaseModel):
     message: str
+    session_id: Optional[str] = "default"
+    use_search: bool = True
+    search_k: int = 5
 
 
-# 헬스체크 엔드포인트
-@app.get("/")
-async def root():
-    """루트 엔드포인트"""
-    return {
-        "message": "페르소나 시스템 API",
-        "version": "1.0.0",
-        "status": "running"
-    }
+class PersonaAnalysisRequest(BaseModel):
+    user_data: List[Dict[str, Any]]
+    session_id: Optional[str] = "default"
 
 
-@app.get("/health")
+class FeedbackRequest(BaseModel):
+    session_id: str
+    message_id: str
+    rating: int  # 1-5
+    feedback: Optional[str] = ""
+
+
+class ChatResponse(BaseModel):
+    success: bool
+    response: str
+    session_id: str
+    metadata: Dict[str, Any]
+    error: Optional[str] = None
+
+
+def get_chatbot(session_id: str = "default") -> PersonaChatbot:
+    """세션별 챗봇 인스턴스 반환 (싱글톤 패턴)"""
+    global user_sessions
+    
+    if session_id not in user_sessions:
+        user_sessions[session_id] = PersonaChatbot()
+        logger.info(f"🤖 새 챗봇 세션 생성: {session_id}")
+    
+    return user_sessions[session_id]
+
+
+@app.on_event("startup")
+async def startup_event():
+    """서버 시작시 초기화"""
+    logger.info("🚀 Phase 5 페르소나 챗봇 서버 시작")
+    
+    # 기본 챗봇 인스턴스 생성
+    global chatbot
+    chatbot = PersonaChatbot()
+    
+    # 시스템 상태 확인
+    status = chatbot.get_system_status()
+    logger.info("📊 시스템 상태:")
+    for key, value in status.items():
+        logger.info(f"  - {key}: {value}")
+    
+    if not status.get('api_key_configured'):
+        logger.warning("⚠️ OpenAI API 키가 설정되지 않았습니다. 일부 기능이 제한됩니다.")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    """메인 웹 인터페이스"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/api/health")
 async def health_check():
     """헬스체크 엔드포인트"""
+    global chatbot
+    if not chatbot:
+        chatbot = PersonaChatbot()
+    
+    status = chatbot.get_system_status()
+    
     return {
         "status": "healthy",
-        "timestamp": "2024-01-01T00:00:00Z"
+        "timestamp": datetime.now().isoformat(),
+        "system_status": status
     }
 
 
-# 텍스트 분석 엔드포인트
-@app.post("/analyze/text", response_model=AnalysisResponse)
-async def analyze_text(request: TextAnalysisRequest):
-    """텍스트 분석 API"""
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_endpoint(chat_request: ChatMessage):
+    """채팅 API 엔드포인트"""
     try:
-        text = request.text.strip()
-        if not text:
-            raise HTTPException(status_code=400, detail="텍스트가 비어있습니다.")
+        session_chatbot = get_chatbot(chat_request.session_id)
         
-        result = {}
-        
-        if request.analysis_type in ["preprocessing", "all"]:
-            # 텍스트 전처리
-            result["preprocessing"] = text_preprocessor.preprocess_text(text)
-            result["writing_style"] = text_preprocessor.analyze_writing_style(text)
-        
-        if request.analysis_type in ["emotion", "all"]:
-            # 감정 분석
-            result["emotion"] = emotion_analyzer.get_emotion_summary(text)
-        
-        if request.analysis_type in ["topic", "all"]:
-            # 토픽 분석
-            result["topic"] = topic_analyzer.get_topic_summary([text])
-        
-        return AnalysisResponse(
-            success=True,
-            data=result,
-            message="텍스트 분석이 완료되었습니다."
+        # 프로젝트 추천 생성
+        result = session_chatbot.generate_project_recommendations(
+            user_question=chat_request.message,
+            search_k=chat_request.search_k,
+            use_conversation_history=True
         )
         
-    except Exception as e:
-        logger.error(f"텍스트 분석 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"텍스트 분석 중 오류가 발생했습니다: {str(e)}")
-
-
-# 페르소나 생성 엔드포인트
-@app.post("/persona/generate", response_model=AnalysisResponse)
-async def generate_persona(request: PersonaRequest):
-    """페르소나 생성 API"""
-    try:
-        user_data = request.user_data.dict()
-        
-        # 페르소나 생성
-        persona = persona_generator.generate_persona(user_data)
-        
-        return AnalysisResponse(
-            success=True,
-            data=persona,
-            message="페르소나가 성공적으로 생성되었습니다."
-        )
-        
-    except Exception as e:
-        logger.error(f"페르소나 생성 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"페르소나 생성 중 오류가 발생했습니다: {str(e)}")
-
-
-# Phase 2: 임베딩 생성 엔드포인트
-@app.post("/embeddings/generate", response_model=AnalysisResponse)
-async def generate_embeddings(request: EmbeddingRequest):
-    """텍스트 임베딩 생성 API"""
-    try:
-        if not request.texts:
-            raise HTTPException(status_code=400, detail="텍스트 목록이 비어있습니다.")
-        
-        # 임베딩 생성
-        embeddings_data = embedding_generator.generate_embeddings(request.texts)
-        
-        # 저장 경로가 지정된 경우 저장
-        if request.save_path:
-            embedding_generator.save_embeddings(embeddings_data, request.save_path)
-        
-        # 통계 정보 추가
-        stats = embedding_generator.get_embedding_stats(embeddings_data)
-        embeddings_data['stats'] = stats
-        
-        return AnalysisResponse(
-            success=True,
-            data=embeddings_data,
-            message="임베딩이 성공적으로 생성되었습니다."
-        )
-        
-    except Exception as e:
-        logger.error(f"임베딩 생성 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"임베딩 생성 중 오류가 발생했습니다: {str(e)}")
-
-
-# 사용자 데이터 임베딩 생성 엔드포인트
-@app.post("/embeddings/user", response_model=AnalysisResponse)
-async def generate_user_embeddings(request: PersonaRequest):
-    """사용자 데이터 임베딩 생성 API"""
-    try:
-        user_data = request.user_data.dict()
-        
-        # 사용자 데이터 임베딩 생성
-        user_embeddings = embedding_generator.generate_user_embeddings(user_data)
-        
-        if user_embeddings['chunks']:
-            # 자동 저장
-            save_path = f"./data/processed/user_{user_data['id']}_embeddings"
-            embedding_generator.save_embeddings(user_embeddings, save_path)
-            
-            # 통계 정보 추가
-            stats = embedding_generator.get_embedding_stats(user_embeddings)
-            user_embeddings['stats'] = stats
-            
-            return AnalysisResponse(
+        if result['success']:
+            return ChatResponse(
                 success=True,
-                data=user_embeddings,
-                message="사용자 데이터 임베딩이 성공적으로 생성되었습니다."
+                response=result['recommendation'],
+                session_id=chat_request.session_id,
+                metadata={
+                    "tokens_used": result['metadata']['tokens_used'],
+                    "search_count": result['metadata']['search_count'],
+                    "prompt_type": result['prompt_type'],
+                    "context_used": result['context_used'],
+                    "timestamp": result['metadata']['timestamp']
+                }
             )
         else:
-            return AnalysisResponse(
-                success=True,
-                data=user_embeddings,
-                message="처리할 텍스트가 없습니다."
-            )
-        
+            raise HTTPException(status_code=500, detail=result.get('error', 'Unknown error'))
+            
     except Exception as e:
-        logger.error(f"사용자 데이터 임베딩 생성 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"사용자 데이터 임베딩 생성 중 오류가 발생했습니다: {str(e)}")
-
-
-# 벡터 데이터베이스 인덱스 생성 엔드포인트
-@app.post("/vector-db/create", response_model=AnalysisResponse)
-async def create_vector_index(embedding_dim: int, index_type: str = "IVFFlat"):
-    """FAISS 벡터 인덱스 생성 API"""
-    try:
-        vector_database.create_index(embedding_dim, index_type)
-        
-        stats = vector_database.get_index_stats()
-        
-        return AnalysisResponse(
-            success=True,
-            data=stats,
-            message="벡터 인덱스가 성공적으로 생성되었습니다."
+        logger.error(f"❌ 채팅 API 오류: {e}")
+        return ChatResponse(
+            success=False,
+            response="죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.",
+            session_id=chat_request.session_id,
+            metadata={},
+            error=str(e)
         )
+
+
+@app.post("/api/persona-analysis")
+async def analyze_persona(analysis_request: PersonaAnalysisRequest):
+    """페르소나 분석 API 엔드포인트"""
+    try:
+        session_chatbot = get_chatbot(analysis_request.session_id)
         
+        result = session_chatbot.analyze_user_persona(analysis_request.user_data)
+        
+        if result['success']:
+            return {
+                "success": True,
+                "persona": result['persona'],
+                "session_id": analysis_request.session_id,
+                "metadata": result['metadata']
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Unknown error'))
+            
     except Exception as e:
-        logger.error(f"벡터 인덱스 생성 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"벡터 인덱스 생성 중 오류가 발생했습니다: {str(e)}")
+        logger.error(f"❌ 페르소나 분석 API 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# 벡터 검색 엔드포인트
-@app.post("/vector-db/search", response_model=AnalysisResponse)
-async def search_vectors(request: VectorSearchRequest):
-    """벡터 검색 API"""
+@app.post("/api/upload-data")
+async def upload_user_data(
+    session_id: str = Form("default"),
+    file: UploadFile = File(...)
+):
+    """사용자 데이터 업로드 (JSON 파일)"""
     try:
-        if not vector_database.index:
-            raise HTTPException(status_code=400, detail="벡터 인덱스가 생성되지 않았습니다.")
+        if not file.filename.endswith('.json'):
+            raise HTTPException(status_code=400, detail="JSON 파일만 업로드 가능합니다.")
         
-        # 텍스트로 검색
-        results = vector_database.search_by_text(
-            query_text=request.query_text,
-            k=request.k,
-            embedding_generator=embedding_generator
-        )
+        content = await file.read()
+        user_data = json.loads(content.decode('utf-8'))
         
-        return AnalysisResponse(
-            success=True,
-            data={
-                "query": request.query_text,
-                "results": results,
-                "total_results": len(results)
-            },
-            message="벡터 검색이 완료되었습니다."
-        )
+        # 데이터 형식 검증
+        if not isinstance(user_data, list):
+            raise HTTPException(status_code=400, detail="데이터는 리스트 형태여야 합니다.")
         
-    except Exception as e:
-        logger.error(f"벡터 검색 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"벡터 검색 중 오류가 발생했습니다: {str(e)}")
-
-
-# 벡터 데이터베이스 통계 엔드포인트
-@app.get("/vector-db/stats")
-async def get_vector_db_stats():
-    """벡터 데이터베이스 통계 정보 API"""
-    try:
-        stats = vector_database.get_index_stats()
+        # 검색 시스템에 데이터 추가
+        session_chatbot = get_chatbot(session_id)
+        search_system = session_chatbot.search_system
+        
+        # 텍스트 추출
+        texts = []
+        metadata = []
+        for i, item in enumerate(user_data):
+            content = item.get('content', '')
+            if content:
+                texts.append(content)
+                metadata.append({
+                    'id': f'uploaded_{i}',
+                    'type': item.get('type', 'user_data'),
+                    'date': item.get('date', datetime.now().isoformat()),
+                    **item
+                })
+        
+        if texts:
+            # 임베딩 생성 및 인덱스에 추가
+            embedding_result = search_system.embedding_generator.generate_embeddings(texts)
+            if isinstance(embedding_result, dict):
+                embeddings = embedding_result['embeddings']
+            else:
+                embeddings = embedding_result
+            
+            # 기존 인덱스가 없다면 새로 생성
+            if search_system.vector_db.index is None:
+                search_system.vector_db.create_index(embeddings.shape[1], index_type="Flat")
+            
+            search_system.vector_db.add_vectors(embeddings, metadata)
+            
+            logger.info(f"📁 사용자 데이터 업로드 완료: {len(texts)}개 문서, 세션 {session_id}")
+        
         return {
             "success": True,
-            "data": stats,
-            "message": "벡터 데이터베이스 통계 정보를 반환합니다."
+            "message": f"{len(texts)}개 문서가 성공적으로 업로드되었습니다.",
+            "session_id": session_id,
+            "document_count": len(texts)
         }
         
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="유효하지 않은 JSON 파일입니다.")
     except Exception as e:
-        logger.error(f"벡터 DB 통계 조회 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"벡터 DB 통계 조회 중 오류가 발생했습니다: {str(e)}")
+        logger.error(f"❌ 파일 업로드 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# 배치 분석 엔드포인트
-@app.post("/analyze/batch", response_model=AnalysisResponse)
-async def analyze_batch_texts(texts: List[str]):
-    """여러 텍스트 배치 분석 API"""
+@app.post("/api/feedback")
+async def submit_feedback(feedback_request: FeedbackRequest):
+    """사용자 피드백 제출"""
     try:
-        if not texts:
-            raise HTTPException(status_code=400, detail="텍스트 목록이 비어있습니다.")
+        # 피드백을 파일로 저장 (실제 서비스에서는 데이터베이스 사용)
+        feedback_dir = project_root / "data" / "feedback"
+        feedback_dir.mkdir(parents=True, exist_ok=True)
         
-        # 텍스트 전처리
-        processed_texts = []
-        for text in texts:
-            if text and text.strip():
-                processed = text_preprocessor.preprocess_text(text.strip())
-                processed_texts.append(processed)
-        
-        # 감정 분석
-        emotion_analysis = emotion_analyzer.analyze_multiple_texts(texts)
-        
-        # 토픽 분석
-        topic_analysis = topic_analyzer.get_topic_summary(texts)
-        
-        result = {
-            "processed_texts": processed_texts,
-            "emotion_analysis": emotion_analysis,
-            "topic_analysis": topic_analysis,
-            "total_texts": len([t for t in texts if t and t.strip()])
+        feedback_data = {
+            "session_id": feedback_request.session_id,
+            "message_id": feedback_request.message_id,
+            "rating": feedback_request.rating,
+            "feedback": feedback_request.feedback,
+            "timestamp": datetime.now().isoformat()
         }
         
-        return AnalysisResponse(
-            success=True,
-            data=result,
-            message="배치 분석이 완료되었습니다."
-        )
+        feedback_file = feedback_dir / f"feedback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(feedback_file, 'w', encoding='utf-8') as f:
+            json.dump(feedback_data, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"📝 피드백 저장: {feedback_request.rating}/5, 세션 {feedback_request.session_id}")
+        
+        return {
+            "success": True,
+            "message": "피드백이 성공적으로 제출되었습니다.",
+            "timestamp": feedback_data["timestamp"]
+        }
         
     except Exception as e:
-        logger.error(f"배치 분석 중 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"배치 분석 중 오류가 발생했습니다: {str(e)}")
+        logger.error(f"❌ 피드백 제출 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# 설정 정보 엔드포인트
-@app.get("/config")
-async def get_config():
-    """시스템 설정 정보 반환"""
-    return {
-        "embedding_model": settings.embedding_model,
-        "chunk_size": settings.chunk_size,
-        "max_tokens": settings.max_tokens,
-        "vector_db_path": settings.vector_db_path,
-        "data_path": settings.data_path
-    }
-
-
-# 에러 핸들러
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """전역 예외 핸들러"""
-    logger.error(f"전역 예외 발생: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "message": "내부 서버 오류가 발생했습니다.",
-            "error": str(exc)
+@app.get("/api/session/{session_id}/history")
+async def get_session_history(session_id: str):
+    """세션 대화 히스토리 조회"""
+    try:
+        if session_id not in user_sessions:
+            return {
+                "success": True,
+                "session_id": session_id,
+                "history": [],
+                "summary": {"total_exchanges": 0, "conversation_started": False}
+            }
+        
+        session_chatbot = user_sessions[session_id]
+        summary = session_chatbot.get_conversation_summary()
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "history": session_chatbot.conversation_history,
+            "summary": summary
         }
-    )
+        
+    except Exception as e:
+        logger.error(f"❌ 히스토리 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/session/{session_id}")
+async def clear_session(session_id: str):
+    """세션 초기화"""
+    try:
+        if session_id in user_sessions:
+            user_sessions[session_id].clear_conversation_history()
+            logger.info(f"🗑️ 세션 초기화: {session_id}")
+        
+        return {
+            "success": True,
+            "message": f"세션 {session_id}이 초기화되었습니다."
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ 세션 초기화 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stats")
+async def get_system_stats():
+    """시스템 통계"""
+    try:
+        stats = {
+            "active_sessions": len(user_sessions),
+            "session_ids": list(user_sessions.keys()),
+            "total_conversations": sum(
+                len(chatbot.conversation_history) // 2 
+                for chatbot in user_sessions.values()
+            ),
+            "system_status": chatbot.get_system_status() if chatbot else {},
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"❌ 통계 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/session/{session_id}/authors")
+async def get_session_authors(session_id: str):
+    """세션의 작성자 목록 조회"""
+    try:
+        if session_id not in user_sessions:
+            return {
+                "success": True,
+                "authors": [],
+                "message": "세션에 데이터가 없습니다."
+            }
+        
+        session_chatbot = user_sessions[session_id]
+        search_system = session_chatbot.search_system
+        
+        # 메타데이터에서 작성자 정보 추출
+        authors = set()
+        if hasattr(search_system.vector_db, 'metadata') and search_system.vector_db.metadata:
+            for metadata in search_system.vector_db.metadata:
+                author = metadata.get('author') or metadata.get('writer') or metadata.get('user_name')
+                if author:
+                    authors.add(author)
+        
+        return {
+            "success": True,
+            "authors": list(authors),
+            "total_authors": len(authors)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ 작성자 목록 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class AuthorSelectionRequest(BaseModel):
+    session_id: str
+    author_name: str
+
+
+@app.post("/api/select-author")
+async def select_author(request: AuthorSelectionRequest):
+    """특정 작성자 선택 및 해당 작성자의 데이터만으로 페르소나 설정"""
+    try:
+        session_chatbot = get_chatbot(request.session_id)
+        search_system = session_chatbot.search_system
+        
+        if not hasattr(search_system.vector_db, 'metadata') or not search_system.vector_db.metadata:
+            raise HTTPException(status_code=400, detail="세션에 업로드된 데이터가 없습니다.")
+        
+        # 선택된 작성자의 데이터만 필터링
+        author_data = []
+        author_texts = []
+        author_embeddings = []
+        author_metadata = []
+        
+        for i, metadata in enumerate(search_system.vector_db.metadata):
+            author = metadata.get('author') or metadata.get('writer') or metadata.get('user_name')
+            if author == request.author_name:
+                author_data.append(metadata)
+                author_texts.append(metadata.get('content', ''))
+                if hasattr(search_system.vector_db, 'vectors') and i < len(search_system.vector_db.vectors):
+                    author_embeddings.append(search_system.vector_db.vectors[i])
+                author_metadata.append(metadata)
+        
+        if not author_data:
+            raise HTTPException(status_code=404, detail=f"작성자 '{request.author_name}'의 데이터를 찾을 수 없습니다.")
+        
+        # 새로운 벡터 DB 생성 (해당 작성자만)
+        if author_embeddings:
+            import numpy as np
+            author_embeddings_array = np.array(author_embeddings)
+            
+            # 새 인덱스 생성
+            search_system.vector_db.create_index(author_embeddings_array.shape[1], index_type="Flat")
+            search_system.vector_db.add_vectors(author_embeddings_array, author_metadata)
+        
+        # 세션에 선택된 작성자 정보 저장
+        if not hasattr(session_chatbot, 'selected_author'):
+            session_chatbot.selected_author = {}
+        session_chatbot.selected_author = {
+            'name': request.author_name,
+            'data_count': len(author_data),
+            'selected_at': datetime.now().isoformat()
+        }
+        
+        logger.info(f"👤 작성자 선택: {request.author_name}, 데이터 {len(author_data)}개, 세션 {request.session_id}")
+        
+        return {
+            "success": True,
+            "message": f"작성자 '{request.author_name}'이 선택되었습니다.",
+            "author_name": request.author_name,
+            "data_count": len(author_data),
+            "session_id": request.session_id
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ 작성자 선택 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
-    # 개발 서버 실행
+    logger.info("🚀 FastAPI 서버 시작...")
     uvicorn.run(
         "main:app",
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
-        log_level=settings.log_level.lower()
+        log_level="info"
     ) 

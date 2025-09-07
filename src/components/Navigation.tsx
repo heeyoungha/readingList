@@ -1,11 +1,11 @@
 
 import { Button } from "./ui/button";
-import { BookOpen, BarChart3, Users, CheckSquare, User, LogIn } from "lucide-react";
+import { BookOpen, BarChart3, Users, CheckSquare, User, LogIn, Bot } from "lucide-react";
 import { getUserDisplayName } from "../lib/utils";
 
 interface NavigationProps {
-  currentPage: 'books' | 'dashboard' | 'meeting' | 'actions';
-  onPageChange: (page: 'books' | 'dashboard' | 'meeting' | 'actions') => void;
+  currentPage: 'books' | 'dashboard' | 'meeting' | 'actions' | 'persona';
+  onPageChange: (page: 'books' | 'dashboard' | 'meeting' | 'actions' | 'persona') => void;
   currentUser?: any;
   onLoginClick: () => void;
   onProfileClick: () => void;
@@ -109,6 +109,19 @@ export function Navigation({ currentPage, onPageChange, currentUser, onLoginClic
             >
               <BarChart3 className="w-4 h-4 mr-2" />
               대시보드
+            </Button>
+            
+            <Button
+              variant={currentPage === 'persona' ? 'default' : 'ghost'}
+              onClick={() => onPageChange('persona')}
+              className={`transition-all duration-200 font-medium ${
+                currentPage === 'persona' 
+                  ? 'bg-black text-white shadow-md scale-105 border-black hover:bg-black hover:text-white' 
+                  : 'hover:bg-accent hover:text-accent-foreground border-transparent'
+              }`}
+            >
+              <Bot className="w-4 h-4 mr-2" />
+              페르소나 챗봇
             </Button>
           </div>
         </div>

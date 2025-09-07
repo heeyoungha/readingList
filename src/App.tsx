@@ -7,6 +7,7 @@ import AddBookForm from "./components/AddBookForm";
 import { Dashboard } from "./components/Dashboard";
 import { MeetingPage } from "./components/MeetingPage";
 import { ActionListPage } from "./components/ActionListPage";
+import { PersonaChatbot } from "./components/PersonaChatbot";
 import { Navigation } from "./components/Navigation";
 import { BookOpen } from "lucide-react";
 import { getBooks, addBook, getActionLists, addActionList } from "./lib/database";
@@ -15,7 +16,7 @@ export default function App() {
   const [books, setBooks] = useState<Book[]>([]);
   const [actionLists, setActionLists] = useState<ActionList[]>([]);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [currentPage, setCurrentPage] = useState<'books' | 'dashboard' | 'meeting' | 'actions'>('books');
+  const [currentPage, setCurrentPage] = useState<'books' | 'dashboard' | 'meeting' | 'actions' | 'persona'>('books');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -181,6 +182,9 @@ export default function App() {
       
       case 'dashboard':
         return <Dashboard books={books} />;
+      
+      case 'persona':
+        return <PersonaChatbot />;
       
       default:
         return null;
