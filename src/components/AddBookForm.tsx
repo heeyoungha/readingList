@@ -14,19 +14,9 @@ interface AddBookFormProps {
   onAddBook: (book: Omit<Book, 'id' | 'reader_name'>) => void;
 }
 
-const emotions = [
-  { value: 'happy', label: '행복한', emoji: '😊' },
-  { value: 'sad', label: '슬픈', emoji: '😢' },
-  { value: 'thoughtful', label: '생각에 잠긴', emoji: '🤔' },
-  { value: 'excited', label: '흥미진진한', emoji: '🤩' },
-  { value: 'calm', label: '평온한', emoji: '😌' },
-  { value: 'surprised', label: '놀란', emoji: '😲' }
-];
-
 export default function AddBookForm({ onAddBook }: AddBookFormProps) {
   const [open, setOpen] = useState(false);
   const [readers, setReaders] = useState<{ id: string; name: string }[]>([]);
-  const [customEmotions, setCustomEmotions] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -34,13 +24,16 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
     review: '',
     presentation: '',
     rating: 5,
-    emotion: 'happy' as string,
     readDate: new Date().toISOString().split('T')[0],
-    tags: [] as string[]
+    tags: [] as string[],
+    genre: '',
+    purchaseLink: '',
+    oneLiner: '',
+    motivation: '',
+    memorableQuotes: [] as string[]
   });
-  const [customEmotion, setCustomEmotion] = useState('');
-  const [customReader, setCustomReader] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [newQuote, setNewQuote] = useState('');
 
   // Load readers on component mount
   useEffect(() => {
@@ -72,12 +65,14 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
 
     console.log('Calling onAddBook with:', {
       ...formData,
-      tags: formData.tags
+      tags: formData.tags,
+      memorableQuotes: formData.memorableQuotes
     });
 
     onAddBook({
       ...formData,
-      tags: formData.tags
+      tags: formData.tags,
+      memorableQuotes: formData.memorableQuotes
     } as Omit<Book, 'id' | 'reader_name'>);
 
     // Reset form
@@ -88,14 +83,16 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
       review: '',
       presentation: '',
       rating: 5,
-      emotion: 'happy',
       readDate: new Date().toISOString().split('T')[0],
-      tags: []
+      tags: [],
+      genre: '',
+      purchaseLink: '',
+      oneLiner: '',
+      motivation: '',
+      memorableQuotes: []
     });
-    setCustomEmotion('');
-    setCustomReader('');
     setNewTag('');
-    setCustomEmotions([]);
+    setNewQuote('');
     setOpen(false);
   };
 
@@ -116,6 +113,23 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
     }));
   };
 
+  const addQuote = () => {
+    if (newQuote.trim() && !formData.memorableQuotes.includes(newQuote.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        memorableQuotes: [...prev.memorableQuotes, newQuote.trim()]
+      }));
+      setNewQuote('');
+    }
+  };
+
+  const removeQuote = (quoteToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      memorableQuotes: prev.memorableQuotes.filter(quote => quote !== quoteToRemove)
+    }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -131,6 +145,7 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 기본 정보 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="title">책 제목 *</Label>
@@ -157,42 +172,27 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
             </div>
           </div>
           
+          {/* 독자 및 날짜 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="reader">독자 *</Label>
-              <div className="space-y-2">
-                <Select
-                  value={formData.reader_id}
-                  onValueChange={(value) => 
-                    setFormData(prev => ({...prev, reader_id: value}))
-                  }
-                >
-                  <SelectTrigger className="bg-white border-2">
-                    <SelectValue placeholder="독자를 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-2">
-                    {readers.map(reader => (
-                      <SelectItem key={reader.id} value={reader.id}>
-                        {reader.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <div className="text-xs text-muted-foreground">
-                  또는 직접 입력: 
-                  <Input
-                    placeholder="독자명을 직접 입력하세요"
-                    value={customReader}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setCustomReader(value);
-                      setFormData(prev => ({...prev, reader_id: value}));
-                    }}
-                    className="mt-1 bg-white border-2"
-                  />
-                </div>
-              </div>
+              <Select
+                value={formData.reader_id}
+                onValueChange={(value) => 
+                  setFormData(prev => ({...prev, reader_id: value}))
+                }
+              >
+                <SelectTrigger className="bg-white border-2">
+                  <SelectValue placeholder="독자를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-2">
+                  {readers.map(reader => (
+                    <SelectItem key={reader.id} value={reader.id}>
+                      {reader.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">
@@ -206,8 +206,20 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
               />
             </div>
           </div>
-          
+
+          {/* 장르 및 평점 */}
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="genre">장르</Label>
+              <Input
+                id="genre"
+                value={formData.genre}
+                onChange={(e) => setFormData(prev => ({...prev, genre: e.target.value}))}
+                placeholder="장르를 입력하세요 (예: 소설, 에세이, 자기계발)"
+                className="bg-white border-2"
+              />
+            </div>
+            
             <div className="space-y-2">
               <Label>평점</Label>
               <div className="flex items-center gap-1">
@@ -230,97 +242,92 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
                 <span className="ml-2">{formData.rating}/5</span>
               </div>
             </div>
+          </div>
+
+          {/* 구매링크 및 한줄평 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="purchaseLink">구매 링크</Label>
+              <Input
+                id="purchaseLink"
+                value={formData.purchaseLink}
+                onChange={(e) => setFormData(prev => ({...prev, purchaseLink: e.target.value}))}
+                placeholder="구매 링크를 입력하세요"
+                className="bg-white border-2"
+              />
+            </div>
             
             <div className="space-y-2">
-              <Label>감정</Label>
-              <div className="space-y-2">
-                <Select
-                  value={formData.emotion}
-                  onValueChange={(value: string) => 
-                    setFormData(prev => ({...prev, emotion: value}))
-                  }
-                >
-                  <SelectTrigger className="bg-white border-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-2">
-                    {emotions.map(emotion => (
-                      <SelectItem key={emotion.value} value={emotion.value}>
-                        {emotion.emoji} {emotion.label}
-                      </SelectItem>
-                    ))}
-                    {customEmotions.length > 0 && (
-                      <>
-                        <SelectItem value="" disabled>
-                          ─── 사용자 추가 감정 ───
-                        </SelectItem>
-                        {customEmotions.map((emotion, index) => (
-                          <SelectItem key={`custom-${index}`} value={emotion}>
-                            😊 {emotion}
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-                
-                <div className="text-xs text-muted-foreground">
-                  또는 직접 입력: 
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      placeholder="감정을 직접 입력하세요"
-                      value={customEmotion}
-                      onChange={(e) => setCustomEmotion(e.target.value)}
-                      className="flex-1 bg-white border-2"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        if (customEmotion.trim() && !customEmotions.includes(customEmotion.trim())) {
-                          setCustomEmotions(prev => [...prev, customEmotion.trim()]);
-                          setFormData(prev => ({...prev, emotion: customEmotion.trim()}));
-                          setCustomEmotion('');
-                        }
-                      }}
-                    >
-                      추가
-                    </Button>
-                  </div>
-                  {customEmotions.length > 0 && (
-                    <div className="mt-2">
-                      <div className="text-xs text-muted-foreground mb-1">추가된 감정:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {customEmotions.map((emotion, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className="text-xs cursor-pointer hover:bg-gray-100"
-                            onClick={() => setFormData(prev => ({...prev, emotion: emotion}))}
-                          >
-                            {emotion}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <Label htmlFor="oneLiner">한줄평</Label>
+              <Input
+                id="oneLiner"
+                value={formData.oneLiner}
+                onChange={(e) => setFormData(prev => ({...prev, oneLiner: e.target.value}))}
+                placeholder="책에 대한 한줄평을 입력하세요"
+                className="bg-white border-2"
+              />
             </div>
           </div>
-          
+
+          {/* 고르게 된 계기 */}
           <div className="space-y-2">
-            <Label htmlFor="review">독후감 *</Label>
+            <Label htmlFor="motivation">고르게 된 계기</Label>
+            <Textarea
+              id="motivation"
+              value={formData.motivation}
+              onChange={(e) => setFormData(prev => ({...prev, motivation: e.target.value}))}
+              placeholder="이 책을 선택하게 된 이유나 계기를 적어주세요..."
+              className="min-h-[80px] bg-white border-2"
+            />
+          </div>
+
+          {/* 기억에 남는 구절 */}
+          <div className="space-y-2">
+            <Label>기억에 남는 구절</Label>
+            <div className="flex gap-2">
+              <Textarea
+                value={newQuote}
+                onChange={(e) => setNewQuote(e.target.value)}
+                placeholder="기억에 남는 구절을 입력하세요"
+                className="bg-white border-2 min-h-[60px]"
+              />
+              <Button type="button" size="sm" onClick={addQuote} className="self-start mt-1">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {formData.memorableQuotes.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {formData.memorableQuotes.map((quote, index) => (
+                  <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex-1 text-sm">{quote}</div>
+                    <button
+                      type="button"
+                      onClick={() => removeQuote(quote)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* 느낀점 */}
+          <div className="space-y-2">
+            <Label htmlFor="review">느낀점 *</Label>
             <Textarea
               id="review"
               value={formData.review}
               onChange={(e) => setFormData(prev => ({...prev, review: e.target.value}))}
-              placeholder="책에 대한 생각과 느낌을 자유롭게 적어주세요..."
+              placeholder="책을 읽고 느낀 점을 자유롭게 적어주세요..."
               className="min-h-[120px] bg-white border-2"
               required
             />
           </div>
           
+          {/* 발제문 */}
           <div className="space-y-2">
             <Label htmlFor="presentation">발제문</Label>
             <Textarea
@@ -332,6 +339,7 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
             />
           </div>
           
+          {/* 태그 */}
           <div className="space-y-2">
             <Label>태그</Label>
             <div className="flex gap-2">

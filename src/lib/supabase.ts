@@ -16,12 +16,17 @@ export interface Database {
           id: string
           title: string
           author: string
-          reader: string
+          reader_id: string
           review: string
+          presentation?: string
           rating: number
-          emotion: string
           read_date: string
           tags: string[]
+          genre?: string
+          purchase_link?: string
+          one_liner?: string
+          motivation?: string
+          memorable_quotes?: string[]
           created_at: string
           updated_at: string
         }
@@ -29,12 +34,17 @@ export interface Database {
           id?: string
           title: string
           author: string
-          reader: string
+          reader_id: string
           review: string
+          presentation?: string
           rating: number
-          emotion: string
           read_date: string
           tags: string[]
+          genre?: string
+          purchase_link?: string
+          one_liner?: string
+          motivation?: string
+          memorable_quotes?: string[]
           created_at?: string
           updated_at?: string
         }
@@ -42,12 +52,37 @@ export interface Database {
           id?: string
           title?: string
           author?: string
-          reader?: string
+          reader_id?: string
           review?: string
+          presentation?: string
           rating?: number
-          emotion?: string
           read_date?: string
           tags?: string[]
+          genre?: string
+          purchase_link?: string
+          one_liner?: string
+          motivation?: string
+          memorable_quotes?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      readers: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
           created_at?: string
           updated_at?: string
         }

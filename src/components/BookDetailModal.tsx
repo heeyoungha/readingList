@@ -1,7 +1,8 @@
 import { Book } from "../types/book";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Badge } from "./ui/badge";
-import { Star, User, Calendar, Tag } from "lucide-react";
+import { Button } from "./ui/button";
+import { Star, User, Calendar, Tag, ExternalLink, Quote, BookOpen, Heart } from "lucide-react";
 import { Separator } from "./ui/separator";
 
 interface BookDetailModalProps {
@@ -10,44 +11,8 @@ interface BookDetailModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const emotionEmojis = {
-  happy: "😊",
-  sad: "😢", 
-  thoughtful: "🤔",
-  excited: "😄",
-  calm: "😌",
-  surprised: "😲"
-};
-
-const emotionLabels = {
-  happy: "행복한",
-  sad: "슬픈",
-  thoughtful: "생각에 잠긴",
-  excited: "흥미진진한",
-  calm: "평온한",
-  surprised: "놀란"
-};
-
-const emotionColors = {
-  happy: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200',
-  sad: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
-  thoughtful: 'bg-purple-100 text-purple-800 hover:bg-purple-200',
-  excited: 'bg-orange-100 text-orange-800 hover:bg-orange-200',
-  calm: 'bg-green-100 text-green-800 hover:bg-green-200',
-  surprised: 'bg-pink-100 text-pink-800 hover:bg-pink-200'
-};
-
 export function BookDetailModal({ book, open, onOpenChange }: BookDetailModalProps) {
   if (!book) return null;
-  
-  const getEmotionColor = (emotion: string) => {
-    if (emotion in emotionColors) {
-      return emotionColors[emotion as keyof typeof emotionColors];
-    }
-    return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
-  };
-  
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,26 +55,105 @@ export function BookDetailModal({ book, open, onOpenChange }: BookDetailModalPro
               <span>{new Date(book.readDate).toLocaleDateString('ko-KR')}</span>
             </div>
           </div>
+
+          {/* 장르와 구매링크 2줄 배치 */}
+          {(book.genre || book.purchaseLink) && (
+            <>
+              <Separator />
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  {book.genre && (
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">장르:</span>
+                      <Badge variant="outline" className="text-xs">
+                        {book.genre}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  {book.purchaseLink && (
+                    <div className="flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(book.purchaseLink, '_blank')}
+                        className="h-6 px-2 text-xs"
+                      >
+                        구매 페이지
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* 한줄평 */}
+          {book.oneLiner && (
+            <>
+              <Separator />
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Quote className="w-4 h-4" />
+                  <h4>한줄평</h4>
+                </div>
+                <div className="bg-blue-50 border-l-4 border-blue-200 rounded p-3">
+                  <p className="text-blue-800 italic">
+                    "{book.oneLiner}"
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* 고르게 된 계기 */}
+          {book.motivation && (
+            <>
+              <Separator />
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Heart className="w-4 h-4" />
+                  <h4>고르게 된 계기</h4>
+                </div>
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {book.motivation}
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* 기억에 남는 구절 */}
+          {book.memorableQuotes && book.memorableQuotes.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Quote className="w-4 h-4" />
+                  <h4>기억에 남는 구절</h4>
+                </div>
+                <div className="space-y-3">
+                  {book.memorableQuotes.map((quote, index) => (
+                    <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap italic">
+                        "{quote}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
           
           <Separator />
           
           <div>
-            <h4 className="mb-2">독후감</h4>
+            <h4 className="mb-2">느낀점</h4>
             <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
               {book.review}
             </p>
-          </div>
-          
-          <Separator />
-          
-          <div>
-            <h4 className="mb-2">감정</h4>
-            <Badge 
-              variant="secondary" 
-              className={`text-sm ${getEmotionColor(book.emotion)}`}
-            >
-              {emotionLabels[book.emotion as keyof typeof emotionLabels] || book.emotion || '기타'}
-            </Badge>
           </div>
           
           {book.presentation && (

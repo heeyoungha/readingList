@@ -28,11 +28,13 @@ export async function getBooks(): Promise<Book[]> {
     review: book.review,
     presentation: book.presentation,
     rating: book.rating,
-    emotion: book.emotion,
-    emotion_score: book.emotion_score,
     readDate: book.read_date,
     tags: book.tags,
-    genre: book.genre
+    genre: book.genre,
+    purchaseLink: book.purchase_link,
+    oneLiner: book.one_liner,
+    motivation: book.motivation,
+    memorableQuotes: book.memorable_quotes
   })) || []
 }
 
@@ -47,11 +49,13 @@ export async function addBook(book: Omit<Book, 'id' | 'reader_name'>): Promise<B
     review: book.review,
     presentation: book.presentation,
     rating: book.rating,
-    emotion: book.emotion,
-    emotion_score: book.emotion_score,
     read_date: book.readDate,
     tags: book.tags,
-    genre: book.genre
+    genre: book.genre,
+    purchase_link: book.purchaseLink,
+    one_liner: book.oneLiner,
+    motivation: book.motivation,
+    memorable_quotes: book.memorableQuotes
   };
   
   console.log('Inserting data:', insertData);
@@ -81,11 +85,13 @@ export async function addBook(book: Omit<Book, 'id' | 'reader_name'>): Promise<B
     review: data.review,
     presentation: data.presentation,
     rating: data.rating,
-    emotion: data.emotion,
-    emotion_score: data.emotion_score,
     readDate: data.read_date,
     tags: data.tags,
-    genre: data.genre
+    genre: data.genre,
+    purchaseLink: data.purchase_link,
+    oneLiner: data.one_liner,
+    motivation: data.motivation,
+    memorableQuotes: data.memorable_quotes
   }
 }
 
@@ -99,9 +105,13 @@ export async function updateBook(id: string, updates: Partial<Book>): Promise<Bo
   if (updates.review) updateData.review = updates.review
   if (updates.presentation !== undefined) updateData.presentation = updates.presentation
   if (updates.rating) updateData.rating = updates.rating
-  if (updates.emotion) updateData.emotion = updates.emotion
   if (updates.readDate) updateData.read_date = updates.readDate
   if (updates.tags) updateData.tags = updates.tags
+  if (updates.genre) updateData.genre = updates.genre
+  if (updates.purchaseLink) updateData.purchase_link = updates.purchaseLink
+  if (updates.oneLiner) updateData.one_liner = updates.oneLiner
+  if (updates.motivation) updateData.motivation = updates.motivation
+  if (updates.memorableQuotes) updateData.memorable_quotes = updates.memorableQuotes
 
   const { data, error } = await supabase
     .from('books')
@@ -127,9 +137,13 @@ export async function updateBook(id: string, updates: Partial<Book>): Promise<Bo
     review: data.review,
     presentation: data.presentation,
     rating: data.rating,
-    emotion: data.emotion,
     readDate: data.read_date,
-    tags: data.tags
+    tags: data.tags,
+    genre: data.genre,
+    purchaseLink: data.purchase_link,
+    oneLiner: data.one_liner,
+    motivation: data.motivation,
+    memorableQuotes: data.memorable_quotes
   }
 }
 

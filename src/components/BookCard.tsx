@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { BookOpen, Calendar, User, Star, CheckSquare } from "lucide-react";
+import { BookOpen, Calendar, User, Star, CheckSquare, ExternalLink, Quote } from "lucide-react";
 import { Book } from '../types/book';
 
 interface BookCardProps {
@@ -11,41 +11,7 @@ interface BookCardProps {
   onAddActionList: (book: Book) => void;
 }
 
-const emotionEmojis: Record<Book['emotion'], string> = {
-  happy: '😊',
-  sad: '😢',
-  thoughtful: '🤔',
-  excited: '🤩',
-  calm: '😌',
-  surprised: '😲'
-};
-
-const emotionLabels: Record<Book['emotion'], string> = {
-  happy: '행복한',
-  sad: '슬픈',
-  thoughtful: '생각에 잠긴',
-  excited: '흥미진진한',
-  calm: '평온한',
-  surprised: '놀란'
-};
-
-const emotionColors: Record<Book['emotion'], string> = {
-  happy: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200',
-  sad: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
-  thoughtful: 'bg-purple-100 text-purple-800 hover:bg-purple-200',
-  excited: 'bg-orange-100 text-orange-800 hover:bg-orange-200',
-  calm: 'bg-green-100 text-green-800 hover:bg-green-200',
-  surprised: 'bg-pink-100 text-pink-800 hover:bg-pink-200'
-};
-
 export default function BookCard({ book, onViewDetails, onAddActionList }: BookCardProps) {
-  const getEmotionColor = (emotion: string) => {
-    if (emotion in emotionColors) {
-      return emotionColors[emotion as keyof typeof emotionColors];
-    }
-    return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
-  };
-
   return (
     <Card 
       className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -93,6 +59,27 @@ export default function BookCard({ book, onViewDetails, onAddActionList }: BookC
             <span>{new Date(book.readDate).toLocaleDateString('ko-KR')}</span>
           </div>
         </div>
+
+        {/* 장르 표시 */}
+        {book.genre && (
+          <div className="mb-2">
+            <Badge variant="outline" className="text-xs">
+              {book.genre}
+            </Badge>
+          </div>
+        )}
+
+        {/* 한줄평 표시 */}
+        {book.oneLiner && (
+          <div className="mb-3 p-2 bg-blue-50 border-l-4 border-blue-200 rounded">
+            <div className="flex items-start gap-2">
+              <Quote className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-blue-800 italic line-clamp-2">
+                {book.oneLiner}
+              </p>
+            </div>
+          </div>
+        )}
         
         <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
           {book.review}
@@ -108,26 +95,15 @@ export default function BookCard({ book, onViewDetails, onAddActionList }: BookC
           </div>
         )}
         
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            <Badge 
-              variant="secondary" 
-              className={`text-xs ${getEmotionColor(book.emotion)}`}
-            >
-              {emotionLabels[book.emotion as keyof typeof emotionLabels] || book.emotion || '기타'}
-            </Badge>
-          </div>
-          
-          {book.presentation && (
-            <div className="text-sm text-muted-foreground">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
-                <span className="text-gray-700 line-clamp-2 text-xs">
-                  {book.presentation}
-                </span>
-              </div>
+        {book.presentation && (
+          <div className="text-sm text-muted-foreground mb-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+              <span className="text-gray-700 line-clamp-2 text-xs">
+                {book.presentation}
+              </span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         
         <div className="flex gap-2 mt-4">
           <Button
@@ -142,6 +118,21 @@ export default function BookCard({ book, onViewDetails, onAddActionList }: BookC
             <CheckSquare className="w-4 h-4 mr-2" />
             액션리스트 추가
           </Button>
+          
+          {book.purchaseLink && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(book.purchaseLink, '_blank');
+              }}
+              className="flex-shrink-0"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          )}
+          
           <Button
             variant="outline"
             size="sm"
