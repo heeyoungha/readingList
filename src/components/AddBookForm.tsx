@@ -6,16 +6,26 @@ import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { Plus, X, Star } from "lucide-react";
+import { Plus, X, Star, Edit } from "lucide-react";
 import { Book } from '../types/book';
 import { getReaders } from '../lib/database';
 
 interface AddBookFormProps {
   onAddBook: (book: Omit<Book, 'id' | 'reader_name'>) => void;
+  onUpdateBook?: (id: string, book: Partial<Book>) => void;
+  editBook?: Book | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function AddBookForm({ onAddBook }: AddBookFormProps) {
-  const [open, setOpen] = useState(false);
+export default function AddBookForm({ 
+  onAddBook, 
+  onUpdateBook, 
+  editBook = null, 
+  open: controlledOpen, 
+  onOpenChange: controlledOnOpenChange 
+}: AddBookFormProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [readers, setReaders] = useState<{ id: string; name: string }[]>([]);
   const [formData, setFormData] = useState({
     title: '',
@@ -35,6 +45,10 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
   const [newTag, setNewTag] = useState('');
   const [newQuote, setNewQuote] = useState('');
 
+  // 외부에서 open 상태를 제어하는 경우와 내부에서 제어하는 경우를 구분
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange || setInternalOpen;
+
   // Load readers on component mount
   useEffect(() => {
     const loadReaders = async () => {
@@ -47,6 +61,46 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
     };
     loadReaders();
   }, []);
+
+  // 편집 모드일 때 폼 데이터 설정
+  useEffect(() => {
+    if (editBook) {
+      setFormData({
+        title: editBook.title || '',
+        author: editBook.author || '',
+        reader_id: editBook.reader_id || '',
+        review: editBook.review || '',
+        presentation: editBook.presentation || '',
+        rating: editBook.rating || 5,
+        readDate: editBook.readDate || new Date().toISOString().split('T')[0],
+        tags: editBook.tags || [],
+        genre: editBook.genre || '',
+        purchaseLink: editBook.purchaseLink || '',
+        oneLiner: editBook.oneLiner || '',
+        motivation: editBook.motivation || '',
+        memorableQuotes: editBook.memorableQuotes || []
+      });
+    } else {
+      // 새 책 추가 모드일 때는 폼 초기화
+      setFormData({
+        title: '',
+        author: '',
+        reader_id: '',
+        review: '',
+        presentation: '',
+        rating: 5,
+        readDate: new Date().toISOString().split('T')[0],
+        tags: [],
+        genre: '',
+        purchaseLink: '',
+        oneLiner: '',
+        motivation: '',
+        memorableQuotes: []
+      });
+    }
+    setNewTag('');
+    setNewQuote('');
+  }, [editBook, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,36 +117,24 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
       return;
     }
 
-    console.log('Calling onAddBook with:', {
-      ...formData,
-      tags: formData.tags,
-      memorableQuotes: formData.memorableQuotes
-    });
+    if (editBook && onUpdateBook) {
+      // 편집 모드
+      console.log('Updating book with:', formData);
+      onUpdateBook(editBook.id, {
+        ...formData,
+        tags: formData.tags,
+        memorableQuotes: formData.memorableQuotes
+      });
+    } else {
+      // 새 책 추가 모드
+      console.log('Adding new book with:', formData);
+      onAddBook({
+        ...formData,
+        tags: formData.tags,
+        memorableQuotes: formData.memorableQuotes
+      } as Omit<Book, 'id' | 'reader_name'>);
+    }
 
-    onAddBook({
-      ...formData,
-      tags: formData.tags,
-      memorableQuotes: formData.memorableQuotes
-    } as Omit<Book, 'id' | 'reader_name'>);
-
-    // Reset form
-    setFormData({
-      title: '',
-      author: '',
-      reader_id: '',
-      review: '',
-      presentation: '',
-      rating: 5,
-      readDate: new Date().toISOString().split('T')[0],
-      tags: [],
-      genre: '',
-      purchaseLink: '',
-      oneLiner: '',
-      motivation: '',
-      memorableQuotes: []
-    });
-    setNewTag('');
-    setNewQuote('');
     setOpen(false);
   };
 
@@ -131,17 +173,21 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          새 독후감 추가
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={setOpen}>
+      {!editBook && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            새 독후감 추가
+          </Button>
+        </DialogTrigger>
+      )}
       
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>새 독후감 추가</DialogTitle>
+          <DialogTitle>
+            {editBook ? '독후감 수정' : '새 독후감 추가'}
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -378,7 +424,7 @@ export default function AddBookForm({ onAddBook }: AddBookFormProps) {
               취소
             </Button>
             <Button type="submit">
-              독후감 추가
+              {editBook ? '수정 완료' : '독후감 추가'}
             </Button>
           </div>
         </form>

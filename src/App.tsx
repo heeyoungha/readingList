@@ -10,12 +10,14 @@ import { ActionListPage } from "./components/ActionListPage";
 import { PersonaChatbot } from "./components/PersonaChatbot";
 import { Navigation } from "./components/Navigation";
 import { BookOpen } from "lucide-react";
-import { getBooks, addBook, getActionLists, addActionList } from "./lib/database";
+import { getBooks, addBook, updateBook, deleteBook, getActionLists, addActionList } from "./lib/database";
 
 export default function App() {
   const [books, setBooks] = useState<Book[]>([]);
   const [actionLists, setActionLists] = useState<ActionList[]>([]);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<'books' | 'dashboard' | 'meeting' | 'actions' | 'persona'>('books');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,39 @@ export default function App() {
       console.error('Error adding book:', err);
       alert('책을 추가하는데 실패했습니다.');
     }
+  };
+
+  const handleUpdateBook = async (id: string, updates: Partial<Book>) => {
+    try {
+      const updatedBook = await updateBook(id, updates);
+      setBooks(prev => prev.map(book => book.id === id ? updatedBook : book));
+      setEditingBook(null);
+      setIsEditFormOpen(false);
+      // 현재 선택된 책이 수정된 책이면 업데이트
+      if (selectedBook?.id === id) {
+        setSelectedBook(updatedBook);
+      }
+    } catch (err) {
+      console.error('Error updating book:', err);
+      alert('책을 수정하는데 실패했습니다.');
+    }
+  };
+
+  const handleDeleteBook = async (book: Book) => {
+    try {
+      await deleteBook(book.id);
+      setBooks(prev => prev.filter(b => b.id !== book.id));
+      setSelectedBook(null); // 상세 모달 닫기
+    } catch (err) {
+      console.error('Error deleting book:', err);
+      alert('책을 삭제하는데 실패했습니다.');
+    }
+  };
+
+  const handleEditClick = (book: Book) => {
+    setEditingBook(book);
+    setIsEditFormOpen(true);
+    setSelectedBook(null); // 상세 모달 닫기
   };
 
   const handleAddActionList = async (newActionData: Omit<ActionList, 'id' | 'reader_name' | 'created_at' | 'updated_at'>) => {
@@ -99,20 +134,17 @@ export default function App() {
               <div>
                 <h2 className="mb-2">독후감 모음</h2>
                 <p className="text-muted-foreground">
-                  총 {books.length}개의 독후감이 있습니다
+                  지금까지 {books.length}권의 책을 읽었습니다
                 </p>
               </div>
-              
               <AddBookForm onAddBook={handleAddBook} />
             </div>
             
             {books.length === 0 ? (
               <div className="text-center py-12">
-                <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="mb-2">아직 등록된 독후감이 없습니다</h3>
-                <p className="text-muted-foreground mb-4">
-                  첫 번째 독후감을 추가해보세요!
-                </p>
+                <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground mb-4">아직 등록된 독후감이 없습니다</p>
+                <AddBookForm onAddBook={handleAddBook} />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -120,18 +152,10 @@ export default function App() {
                   <BookCard
                     key={book.id}
                     book={book}
-                    onViewDetails={() => setSelectedBook(book)}
+                    onViewDetails={setSelectedBook}
                     onAddActionList={(book) => {
-                      const newActionList: Omit<ActionList, 'id' | 'reader_name' | 'created_at' | 'updated_at'> = {
-                        title: `${book.title}에서 배운 실천사항`,
-                        reader_id: book.reader_id,
-                        book_title: book.title,
-                        content: '책에서 배운 내용을 실천해보세요.',
-                        target_months: [new Date().toLocaleDateString('ko-KR', { month: 'long' })],
-                        action_time: '매일 아침',
-                        status: '진행전'
-                      };
-                      handleAddActionList(newActionList);
+                      // 액션리스트 페이지로 이동하면서 책 정보 전달
+                      setCurrentPage('actions');
                     }}
                   />
                 ))}
@@ -139,53 +163,28 @@ export default function App() {
             )}
           </div>
         );
-      
-      case 'actions':
-        return (
-          <ActionListPage 
-            actionLists={actionLists}
-            onViewActionList={() => {}} // TODO: Implement action list detail view
-            onAddActionList={() => {
-              const newActionList: Omit<ActionList, 'id' | 'reader_name' | 'created_at' | 'updated_at'> = {
-                title: '새로운 액션리스트',
-                reader_id: books[0]?.reader_id || 'default',
-                book_title: books[0]?.title || '기본 책',
-                content: '새로운 실천 내용을 입력하세요.',
-                target_months: [new Date().toLocaleDateString('ko-KR', { month: 'long' })],
-                action_time: '매일 아침',
-                status: '진행전'
-              };
-              handleAddActionList(newActionList);
-            }}
-          />
-        );
-      
+      case 'dashboard':
+        return <Dashboard books={books} />;
       case 'meeting':
         return (
           <MeetingPage 
             books={books} 
-            onBookClick={(book) => setSelectedBook(book)}
+            onBookClick={setSelectedBook}
             onAddActionList={(book) => {
-              const newActionList: Omit<ActionList, 'id' | 'reader_name' | 'created_at' | 'updated_at'> = {
-                title: `${book.title}에서 배운 실천사항`,
-                reader_id: book.reader_id,
-                book_title: book.title,
-                content: '책에서 배운 내용을 실천해보세요.',
-                target_months: [new Date().toLocaleDateString('ko-KR', { month: 'long' })],
-                action_time: '매일 아침',
-                status: '진행전'
-              };
-              handleAddActionList(newActionList);
+              setCurrentPage('actions');
             }}
           />
         );
-      
-      case 'dashboard':
-        return <Dashboard books={books} />;
-      
+      case 'actions':
+        return (
+          <ActionListPage 
+            actionLists={actionLists} 
+            onViewActionList={() => {}}
+            onAddActionList={() => {}}
+          />
+        );
       case 'persona':
         return <PersonaChatbot />;
-      
       default:
         return null;
     }
@@ -196,7 +195,6 @@ export default function App() {
       <Navigation 
         currentPage={currentPage} 
         onPageChange={setCurrentPage}
-        currentUser={null}
         onLoginClick={() => {}}
         onProfileClick={() => {}}
         onEmailVerificationClick={() => {}}
@@ -204,13 +202,30 @@ export default function App() {
       
       <main className="container mx-auto px-4 py-8">
         {renderCurrentPage()}
-        
-        <BookDetailModal
-          book={selectedBook}
-          open={!!selectedBook}
-          onOpenChange={(open) => !open && setSelectedBook(null)}
-        />
       </main>
+
+      {/* 책 상세 모달 */}
+      <BookDetailModal
+        book={selectedBook}
+        open={!!selectedBook}
+        onOpenChange={(open) => !open && setSelectedBook(null)}
+        onEditClick={handleEditClick}
+        onDeleteClick={handleDeleteBook}
+      />
+
+      {/* 편집 폼 모달 */}
+      <AddBookForm
+        onAddBook={handleAddBook}
+        onUpdateBook={handleUpdateBook}
+        editBook={editingBook}
+        open={isEditFormOpen}
+        onOpenChange={(open) => {
+          setIsEditFormOpen(open);
+          if (!open) {
+            setEditingBook(null);
+          }
+        }}
+      />
     </div>
   );
 }
