@@ -2,7 +2,7 @@ import { Book } from "../types/book";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Star, User, Calendar, Tag, ExternalLink, Quote, BookOpen, Heart, Edit, X, Trash2 } from "lucide-react";
+import { Star, User, Calendar, Tag, ExternalLink, Quote, BookOpen, Heart, Edit, X, Trash2, CheckSquare } from "lucide-react";
 import { Separator } from "./ui/separator";
 
 interface BookDetailModalProps {
@@ -11,9 +11,11 @@ interface BookDetailModalProps {
   onOpenChange: (open: boolean) => void;
   onEditClick?: (book: Book) => void;
   onDeleteClick?: (book: Book) => void;
+  onAddActionList?: (book: Book) => void; // 👈 액션리스트 추가
+  onAddEchoList?: (book: Book) => void; // 👈 울림리스트 추가
 }
 
-export function BookDetailModal({ book, open, onOpenChange, onEditClick, onDeleteClick }: BookDetailModalProps) {
+export function BookDetailModal({ book, open, onOpenChange, onEditClick, onDeleteClick, onAddActionList, onAddEchoList }: BookDetailModalProps) {
   if (!book) return null;
 
   const handleEditClick = () => {
@@ -28,6 +30,21 @@ export function BookDetailModal({ book, open, onOpenChange, onEditClick, onDelet
       if (confirmed) {
         onDeleteClick(book);
       }
+    }
+  };
+
+  // 👈 이 함수들 추가
+  const handleAddActionList = () => {
+    if (onAddActionList && book) {
+      onAddActionList(book);
+      onOpenChange(false); // 모달 닫기
+    }
+  };
+
+  const handleAddEchoList = () => {
+    if (onAddEchoList && book) {
+      onAddEchoList(book);
+      onOpenChange(false); // 모달 닫기
     }
   };
 
@@ -248,6 +265,31 @@ export function BookDetailModal({ book, open, onOpenChange, onEditClick, onDelet
               </div>
             </>
           )}
+
+          {/* 액션리스트 추가, 울림리스트 추가 버튼 */}
+          <Separator />
+          <div className="flex gap-3">
+            {onAddActionList && (
+              <Button
+                variant="outline"
+                onClick={handleAddActionList}
+                className="flex-1"
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                액션리스트 추가
+              </Button>
+            )}
+            {onAddEchoList && (
+              <Button
+                variant="outline"
+                onClick={handleAddEchoList}
+                className="flex-1"
+              >
+                <Heart className="w-4 h-4 mr-2" />
+                울림리스트 추가
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

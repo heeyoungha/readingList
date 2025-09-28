@@ -7,6 +7,7 @@ import AddBookForm from "./components/AddBookForm";
 import { Dashboard } from "./components/Dashboard";
 import { MeetingPage } from "./components/MeetingPage";
 import { ActionListPage } from "./components/ActionListPage";
+import { ActionListForm } from "./components/ActionListForm"; 
 import { PersonaChatbot } from "./components/PersonaChatbot";
 import { Navigation } from "./components/Navigation";
 import { BookOpen } from "lucide-react";
@@ -21,6 +22,9 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<'books' | 'dashboard' | 'meeting' | 'actions' | 'persona'>('books');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(false); 
+  const [isActionListFormOpen, setIsActionListFormOpen] = useState(false);
+  const [selectedBookForActionList, setSelectedBookForActionList] = useState<Book | null>(null);
 
   // 데이터 로드
   useEffect(() => {
@@ -28,6 +32,8 @@ export default function App() {
   }, []);
 
   const loadData = async () => {
+    if (isLoadingData) return; // 👈 이미 로딩 중이면 중복 호출 방지
+
     try {
       setLoading(true);
       setError(null);
@@ -98,6 +104,14 @@ export default function App() {
     }
   };
 
+  // 👈 새로운 함수 추가
+  const handleAddActionListFromBook = (book: Book) => {
+    console.log('액션리스트 추가:', book.title); // 👈 디버깅용 로그 추가
+    setSelectedBookForActionList(book);
+    setCurrentPage('actions');
+    setIsActionListFormOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -142,9 +156,11 @@ export default function App() {
             
             {books.length === 0 ? (
               <div className="text-center py-12">
-                <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">아직 등록된 독후감이 없습니다</p>
-                <AddBookForm onAddBook={handleAddBook} />
+                <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="mb-2">아직 등록된 독후감이 없습니다</h3>
+                <p className="text-muted-foreground mb-4">
+                  첫 번째 독후감을 추가해보세요!
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -153,10 +169,7 @@ export default function App() {
                     key={book.id}
                     book={book}
                     onViewDetails={setSelectedBook}
-                    onAddActionList={(book) => {
-                      // 액션리스트 페이지로 이동하면서 책 정보 전달
-                      setCurrentPage('actions');
-                    }}
+                    onAddActionList={handleAddActionListFromBook} // 👈 이렇게 수정
                   />
                 ))}
               </div>
@@ -180,11 +193,13 @@ export default function App() {
           <ActionListPage 
             actionLists={actionLists} 
             onViewActionList={() => {}}
-            onAddActionList={() => {}}
+            onAddActionList={() => {
+              setIsActionListFormOpen(true);
+            }}
           />
         );
       case 'persona':
-        return <PersonaChatbot />;
+        return <PersonaChatbot books={books} />; // 👈 books props 전달
       default:
         return null;
     }
@@ -204,6 +219,23 @@ export default function App() {
         {renderCurrentPage()}
       </main>
 
+      {/* 액션리스트 추가 폼 모달 */}
+      <ActionListForm
+        open={isActionListFormOpen}
+        onOpenChange={(open) => {
+          setIsActionListFormOpen(open);
+          if (!open) {
+            setSelectedBookForActionList(null);
+          }
+        }}
+        onAddActionList={handleAddActionList}
+        initialData={selectedBookForActionList ? {
+          book_title: selectedBookForActionList.title, // 👈 올바른 형식
+          reader_id: selectedBookForActionList.reader_id || '', // 👈 reader_id 추가
+          reader_name: selectedBookForActionList.reader_name || '알 수 없음' // 👈 reader_name 추가
+        } : undefined}
+      />
+
       {/* 책 상세 모달 */}
       <BookDetailModal
         book={selectedBook}
@@ -211,21 +243,27 @@ export default function App() {
         onOpenChange={(open) => !open && setSelectedBook(null)}
         onEditClick={handleEditClick}
         onDeleteClick={handleDeleteBook}
-      />
-
-      {/* 편집 폼 모달 */}
-      <AddBookForm
-        onAddBook={handleAddBook}
-        onUpdateBook={handleUpdateBook}
-        editBook={editingBook}
-        open={isEditFormOpen}
-        onOpenChange={(open) => {
-          setIsEditFormOpen(open);
-          if (!open) {
-            setEditingBook(null);
-          }
+        onAddActionList={handleAddActionListFromBook} // 👈 이 라인이 있는지 확인
+        onAddEchoList={(book) => {
+          console.log('울림리스트 추가:', book.title);
         }}
       />
+
+      {/* 편집 폼 모달 - 편집할 때만 렌더링 */}
+      {editingBook && (
+        <AddBookForm
+          onAddBook={handleAddBook}
+          onUpdateBook={handleUpdateBook}
+          editBook={editingBook}
+          open={isEditFormOpen}
+          onOpenChange={(open) => {
+            setIsEditFormOpen(open);
+            if (!open) {
+              setEditingBook(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

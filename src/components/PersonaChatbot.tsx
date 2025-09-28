@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, MessageCircle, Send, Bot, Loader2, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Book } from '../types/book';
-import { getBooks } from '../lib/database';
+// import { getBooks } from '../lib/database';
 
 interface ChatMessage {
   id: string;
@@ -21,7 +21,11 @@ interface Author {
   reviewCount: number;
 }
 
-export function PersonaChatbot() {
+interface PersonaChatbotProps {
+  books: Book[]; // 👈 props로 books 받기
+}
+
+export function PersonaChatbot({ books }: PersonaChatbotProps) { // 👈 props 받기
   const [authors, setAuthors] = useState<Author[]>([]);
   const [selectedAuthor, setSelectedAuthor] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -31,10 +35,12 @@ export function PersonaChatbot() {
   const [sessionId] = useState(`session_${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Supabase에서 독후감 데이터 로드
+  // props로 받은 books 데이터로 작성자 목록 생성
   useEffect(() => {
-    loadBookReviews();
-  }, []);
+    if (books && books.length > 0) {
+      loadBookReviews();
+    }
+  }, [books]); // 👈 books가 변경될 때마다 실행
 
   // 메시지 스크롤
   useEffect(() => {
@@ -45,8 +51,8 @@ export function PersonaChatbot() {
     try {
       setIsLoadingData(true);
       
-      // 기존 getBooks 함수를 사용하여 독후감 데이터 가져오기 (reader_name 포함)
-      const books = await getBooks();
+      // props로 받은 books 사용 (getBooks() 호출 제거)
+      // const books = await getBooks(); // 👈 이 라인 제거
 
       // 작성자별로 그룹핑
       const authorMap = new Map<string, number>();
@@ -74,9 +80,9 @@ export function PersonaChatbot() {
     try {
       setIsLoading(true);
 
-      // 선택된 작성자의 독후감 데이터 가져오기
-      const allBooks = await getBooks();
-      const authorBooks = allBooks.filter(book => book.reader_name === authorName);
+      // props로 받은 books에서 필터링 (getBooks() 호출 제거)
+      // const allBooks = await getBooks(); // 👈 이 라인 제거
+      const authorBooks = books.filter(book => book.reader_name === authorName);
 
       // 페르소나 시스템에 데이터 업로드
       const formattedData = authorBooks?.map((book: Book, index: number) => ({

@@ -8,7 +8,7 @@ import { Book } from '../types/book';
 interface BookCardProps {
   book: Book;
   onViewDetails: (book: Book) => void;
-  onAddActionList: (book: Book) => void;
+  onAddActionList?: (book: Book) => void;
 }
 
 export default function BookCard({ book, onViewDetails, onAddActionList }: BookCardProps) {
@@ -105,8 +105,8 @@ export default function BookCard({ book, onViewDetails, onAddActionList }: BookC
           </div>
         )}
         
-        <div className="flex gap-2 mt-4">
-          <Button
+        <div className="mt-auto pt-3 flex justify-center">
+          {/* <Button
             variant="outline"
             size="sm"
             onClick={(e) => {
@@ -118,8 +118,8 @@ export default function BookCard({ book, onViewDetails, onAddActionList }: BookC
             <CheckSquare className="w-4 h-4 mr-2" />
             액션리스트 추가
           </Button>
-          
-          {book.purchaseLink && (
+           */}
+          {book.purchaseLink ? (
             <Button
               variant="outline"
               size="sm"
@@ -127,13 +127,17 @@ export default function BookCard({ book, onViewDetails, onAddActionList }: BookC
                 e.stopPropagation();
                 window.open(book.purchaseLink, '_blank');
               }}
-              className="flex-shrink-0"
-            >
-              <ExternalLink className="w-4 h-4" />
+              className="w-4/5"
+            > 구매링크 바로가기
+              <ExternalLink className="w-4 h-4 mr-2" />
             </Button>
+          ) : (
+            <div className="text-center text-sm text-muted-foreground py-2">
+              구매 링크 없음
+            </div>
           )}
           
-          <Button
+          {/* <Button
             variant="outline"
             size="sm"
             onClick={(e) => {
@@ -143,7 +147,7 @@ export default function BookCard({ book, onViewDetails, onAddActionList }: BookC
             className="flex-1"
           >
             자세히 보기
-          </Button>
+          </Button> */}
         </div>
       </CardContent>
     </Card>
